@@ -6,6 +6,8 @@ local Services = ServerScriptService:WaitForChild("Services")
 local ORDER = {
 	"DataService",
 	"PetService",
+	"BaseService",
+	"WeightService",
 	"KickService",
 	"TrainService",
 	"UpgradeService",

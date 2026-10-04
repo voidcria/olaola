@@ -8,7 +8,10 @@ local EggModels = require(Modules.Models.EggModels)
 return function(ctx)
 	local UI = ctx.UI
 	local T = UI.Theme
-	local window, content = ctx.UIController:CreateWindow("EggShop", "EGG SHOP", "Eggs", Color3.fromRGB(255, 196, 64), Vector2.new(820, 470))
+	local window, content = ctx.UIController:CreateWindow("EggShop", "EGGS", "Eggs", Color3.fromRGB(255, 196, 64), Vector2.new(820, 480), {
+		{ Id = "EggShop", Text = "Kick Eggs" },
+		{ Id = "Hatchery", Text = "Hatch Pets" },
+	})
 
 	UI.label({
 		Text = "Better eggs give more coins per meter. Choose which egg you kick!",

@@ -18,6 +18,8 @@ local EggConfig = require(Modules.EggConfig)
 local PetConfig = require(Modules.PetConfig)
 local UpgradeConfig = require(Modules.UpgradeConfig)
 local AreaConfig = require(Modules.AreaConfig)
+local WeightConfig = require(Modules.WeightConfig)
+local BaseConfig = require(Modules.BaseConfig)
 
 local DATA_VERSION = 1
 
@@ -67,6 +69,11 @@ local function defaultData()
 		Equipped = {}, -- { petId, ... }
 		Discovered = {}, -- [nome] = true
 		PetCounter = 0,
+		OwnedWeights = { Wooden = true },
+		EquippedWeight = "Wooden",
+		-- Base: Slots["1".."8"] = { Pet = petId, Stored = moedas acumuladas }
+		Base = { Unlocked = BaseConfig.FreeSlots, Slots = {} },
+		TotalBaseCollected = 0,
 		AutoTrain = false,
 		AutoKick = false,
 		Settings = {
@@ -97,7 +104,7 @@ end
 
 -- Corrige qualquer valor inválido (dados antigos/corrompidos)
 local function sanitize(data)
-	for _, key in { "Coins", "Strength", "Rebirths", "BestDistance", "TotalDistance", "TotalKicks", "TotalCoinsEarned", "TotalHatches", "Playtime", "PetCounter" } do
+	for _, key in { "Coins", "Strength", "Rebirths", "BestDistance", "TotalDistance", "TotalKicks", "TotalCoinsEarned", "TotalHatches", "Playtime", "PetCounter", "TotalBaseCollected" } do
 		data[key] = math.max(0, finite(data[key], 0))
 	end
 	data.HighestArea = math.clamp(math.floor(finite(data.HighestArea, 1)), 1, #AreaConfig.Areas)
@@ -123,9 +130,41 @@ local function sanitize(data)
 			data.Pets[petId] = nil
 		end
 	end
+	-- Pesos
+	data.OwnedWeights.Wooden = true
+	for id in data.OwnedWeights do
+		if not WeightConfig.Get(id) then
+			data.OwnedWeights[id] = nil
+		end
+	end
+	if not data.OwnedWeights[data.EquippedWeight] then
+		data.EquippedWeight = "Wooden"
+	end
+
+	-- Base: slots válidos, pets existentes e sem duplicatas
+	local base = data.Base
+	base.Unlocked = math.clamp(math.floor(finite(base.Unlocked, BaseConfig.FreeSlots)), BaseConfig.FreeSlots, BaseConfig.SlotCount)
+	local placed = {}
+	for slot, entry in base.Slots do
+		local n = tonumber(slot)
+		if
+			type(entry) ~= "table"
+			or not n
+			or n < 1
+			or n > base.Unlocked
+			or not data.Pets[entry.Pet]
+			or placed[entry.Pet]
+		then
+			base.Slots[slot] = nil
+		else
+			placed[entry.Pet] = true
+			entry.Stored = math.max(0, finite(entry.Stored, 0))
+		end
+	end
+
 	local equipped = {}
 	for _, petId in data.Equipped do
-		if data.Pets[petId] and not table.find(equipped, petId) then
+		if data.Pets[petId] and not table.find(equipped, petId) and not placed[petId] then
 			table.insert(equipped, petId)
 		end
 	end

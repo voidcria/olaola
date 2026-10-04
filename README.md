@@ -37,24 +37,26 @@ src/
 │  ├─ UpgradeConfig.lua    Kick Power, Strength Gain, Coin Gain, Walk Speed
 │  ├─ RebirthConfig.lua    custo progressivo, bônus por rebirth, marcos
 │  ├─ AreaConfig.lua       5 áreas da pista e requisitos
-│  ├─ TrainConfig.lua      estações de treino
+│  ├─ WeightConfig.lua     pesos da Weight Shop (preço, força por levantada)
+│  ├─ BaseConfig.lua       bases: slots, preços, renda por raridade
 │  ├─ TrackConfig.lua      geometria do mapa (usada pelo jogo e pelo build)
 │  ├─ FlightPath.lua       trajetória do ovo (arco + quicadas + rolagem)
 │  ├─ NumberFormat.lua     1.2K, 15M, 3.4Qa, 542m, x1.5, 1h 02m
 │  ├─ SoundConfig.lua / IconConfig.lua   troque aqui sons e ícones
 │  ├─ Remotes.lua / Signal.lua
-│  └─ Models/EggModels.lua, PetModels.lua   (modelo procedural OU o seu modelo)
+│  └─ Models/EggModels.lua, PetModels.lua, WeightModels.lua   (modelo procedural OU o seu modelo)
 ├─ ServerScriptService/
 │  ├─ Main.server.lua      inicializa os services
-│  ├─ Services/            DataService, KickService, TrainService, PetService, EggService,
-│  │                       UpgradeService, RebirthService, AreaService, SettingsService, LeaderboardService
+│  ├─ Services/            DataService, KickService, TrainService, WeightService, BaseService,
+│  │                       PetService, EggService, UpgradeService, RebirthService, AreaService,
+│  │                       SettingsService, LeaderboardService
 │  └─ Util/                RateLimiter, Notify
 └─ StarterPlayer/StarterPlayerScripts/
    ├─ Main.client.lua
    ├─ Controllers/         Data, Sound, Animation, UI, Camera, Effects, Hatch (roleta), Kick,
-   │                       Train, PetFollow, Tutorial, Gate
+   │                       Train, PetFollow, Base, Tutorial, Gate
    └─ UI/                  UIKit (tema, botões, ícones, viewports) + Panels/ (Stats, Settings,
-                           Upgrades, EggShop, Hatchery, Pets, Rebirth, Areas)
+                           Upgrades, EggShop + Hatchery (abas), Weights, Pets, Rebirth, Areas)
 build/build.luau            monta o mapa e o place
 ```
 
@@ -67,12 +69,15 @@ build/build.luau            monta o mapa e o place
 | **Chute** | Na zona laranja (Kick Zone), o ovo aparece na sua frente. **KICK!** (botão, `E` ou `X` no controle) toca a animação, o som, o impacto e a onda de choque. O servidor calcula a distância e os clientes desenham o voo. |
 | **Distância** | Contador em tempo real (`123m`). Ao entrar numa área nova aparece o nome dela. No fim: moedas, ou **NEW BEST!** com troféu, som e confete. O jogo salva melhor distância, distância total e total de chutes. |
 | **Câmera do ovo** | Acompanha o ovo e depois volta suave ao jogador. Pode ser desligada em **Settings → Egg Camera**. |
-| **Treino** | 6 estações no lobby: Dummy → Tire → Dumbbells → Boulder → Titan → Cosmic Anvil. Toque ou segure **TRAIN** (ou `E`) e aparece `+5 Strength`, `+1.2K Strength`… |
-| **Auto Train** | Liberado com **1 Rebirth**. Rende 1 treino por segundo na melhor estação liberada. |
+| **Lobby** | Como no original: a pista sai da linha de chute, com **uma barraca de cada lado** (esquerda: **Weight Shop**, direita: **Rebirth**). As **6 bases** dos jogadores ficam nas laterais, e tudo é cercado por **paredes cartunescas**: parede grossa, faixas, topo arredondado laranja e pilares com bola. As cores mudam em cada área da pista. |
+| **Treino (pesos)** | Você nasce segurando o **Wooden Dumbbell**. Clique (ou toque/segure **TRAIN**, ou `E`) para levantar e aparece `+5 Strength`, `+1.2K Strength`… Na **Weight Shop** você compra pesos melhores: Wooden → Iron → Steel → Golden → Diamond → Lava → Cosmic → Galaxy. |
+| **Auto Train** | Liberado com **1 Rebirth**. Rende 1 levantada por segundo com o peso equipado. |
+| **Bases de pets** | Cada jogador recebe uma base com o nome na placa. Ela tem **8 pedestais**: 4 grátis e 4 que você libera com moedas. Use o prompt (`F`) num pedestal para **colocar um pet**. O pet fica girando ali e **gera moedas por segundo** (conforme a raridade). Pise no **botão verde** na frente do pedestal para coletar, igual ao original. Ao renascer, você aparece na sua base. |
+| **Seta de ajuda** | Objetivo no topo da tela e uma **seta dourada com feixe** levando até o lugar certo (zona de chute, Weight Shop, pedestal da sua base, botão de coletar, Rebirth). Quando o objetivo é um botão da tela (Upgrades, Eggs, Areas, TRAIN), o botão **pisca**. Depois do tutorial, a seta continua avisando quando o rebirth fica disponível ou quando dá para comprar um peso novo. |
 | **Auto Kick** | Já implementado no servidor e desligado. Para ativar: `Config.AutoKick.Enabled = true`. Depois falta só um botão que chame o remote `SetAuto("AutoKick", true)`. |
-| **Ovos** | Basic → Rare → Epic → Legendary → Mythic → Cosmic (Secret). Desbloqueados na **Egg Shop** com Strength + Coins (+ Rebirths). Cada ovo multiplica as moedas do chute. |
-| **Roleta** | Na **Hatchery**: os cards passam rápido, desaceleram e param no pet sorteado pelo servidor. Mostra nome, raridade, chance e bônus. Quanto mais raro, mais longa a roleta, com raios girando, tremida e confete. |
-| **Pets** | 27 pets com bônus de Coins, Strength e Kick (os bônus somam). Inventário com cards, filtros (All/Common/Rare/Epic/Legendary/Mythic/Secret), Equip/Unequip, Lock, Delete (com confirmação), **Equip Best** e Unequip All. Os pets seguem o jogador. |
+| **Ovos** | Basic → Rare → Epic → Legendary → Mythic → Cosmic (Secret). Desbloqueados no menu **Eggs → Kick Eggs** com Strength + Coins (+ Rebirths). Cada ovo multiplica as moedas do chute. |
+| **Roleta** | Em **Eggs → Hatch Pets**: os cards passam rápido, desaceleram e param no pet sorteado pelo servidor. Mostra nome, raridade, chance e bônus. Quanto mais raro, mais longa a roleta, com raios girando, tremida e confete. |
+| **Pets** | 27 pets com bônus de Coins, Strength e Kick (os bônus somam). Inventário com cards, filtros (All/Common/Rare/Epic/Legendary/Mythic/Secret), Equip/Unequip, Lock, Delete (com confirmação), **Equip Best** e Unequip All. Pets equipados seguem o jogador e dão bônus; pets na base geram moedas. |
 | **Áreas** | Sunny Meadow → Sandy Dunes → Frosty Peaks → Lava Fields → Cosmic Garden (6.000 m). O ovo **bate no portão da primeira área bloqueada**, então desbloquear áreas é o que deixa você chutar mais longe. |
 | **Upgrades** | Kick Power, Strength Gain, Coin Gain e Walk Speed, com custo exponencial e nível máximo. |
 | **Rebirth** | Reseta Coins e Strength e dá bônus permanentes de Strength, Coins e Kick. O custo cresce ×4,5 por rebirth. Marcos: Auto Train, slots extras de pet. |
@@ -87,9 +92,9 @@ Os botões do menu aparecem aos poucos: Upgrades depois do 1º chute, Eggs, Pets
 
 ## Segurança e dados
 - O cliente só envia **intenções** ("quero chutar", "treinar na estação 2", "comprar KickPower"). Distância, moedas, sorteio de pets, preços e requisitos são calculados e validados no servidor.
-- O servidor valida posição (zona de chute, raio da estação, proximidade da Hatchery), tipos dos argumentos e limite de frequência (RateLimiter em todos os remotes).
+- O servidor valida posição (zona de chute, estar na própria base), se o jogador está realmente segurando o peso, quem é o dono do botão de coletar, os tipos dos argumentos e o limite de frequência (RateLimiter em todos os remotes).
 - **DataService:** `UpdateAsync` com *session lock*, `pcall` com novas tentativas e backoff, autosave a cada 90 s, save ao sair e no `BindToClose`, e correção de dados inválidos. Se o load falhar, o jogador é desconectado com aviso, em vez de jogar com um save zerado que sobrescreveria o progresso.
-- **O que é salvo:** Coins, Strength, Rebirths, BestDistance, TotalDistance, TotalKicks, Pets, Equipped, UnlockedEggs, HighestArea, Upgrades, Settings, Playtime, AutoTrain.
+- **O que é salvo:** Coins, Strength, Rebirths, BestDistance, TotalDistance, TotalKicks, Pets, Equipped, UnlockedEggs, HighestArea, Upgrades, Settings, Playtime, AutoTrain, pesos comprados e equipado, e a base: slots liberados, pets colocados e moedas acumuladas.
 
 ## Performance
 - Ovos voando e pets são desenhados no cliente com **um único loop** cada, sem física no servidor.
@@ -100,13 +105,15 @@ Os botões do menu aparecem aos poucos: Upgrades depois do 1º chute, Eggs, Pets
 
 ## Personalizar (seus assets)
 - **Ícones:** coloque os asset ids em `IconConfig.lua`. Campo vazio = ícone desenhado na UI, sem emoji.
+- **Max Players:** com 6 bases, configure *Game Settings → Places → Max Players = 6*. O build já salva esse valor no `.rbxl`.
+- **Pesos com seus modelos:** coloque um `Model` em `ReplicatedStorage/Assets/Weights` com o nome do peso.
 - **Ovos/pets com seus modelos:** coloque um `Model` em `ReplicatedStorage/Assets/Eggs` (com o nome do campo `Model` do EggConfig) ou em `Assets/Pets` (com o nome do pet). O jogo usa o seu modelo no lugar do procedural, inclusive nos cards da UI. Ícone 2D: campo `Icon` no EggConfig/PetConfig.
 - **Sons:** `SoundConfig.lua`. Os padrões usam sons que já vêm no Roblox; música fica vazia por padrão.
 - **Animações:** `Config.Animations.Kick` / `Train` (vazio = animação procedural nos Motor6D).
 - **Balanceamento:** `Config.lua` e `*Config.lua`. Depois rode `lune run tools/balance_sim.luau` para ver o efeito (primeiro chute, tempo até cada área e cada rebirth).
-- **Mapa:** posições em `TrackConfig.lua`, `TrainConfig.lua` e `AreaConfig.lua`. O mapa é montado em `build/build.luau`.
+- **Mapa:** posições em `TrackConfig.lua` (barracas, bases, paredes), `BaseConfig.lua` e `AreaConfig.lua`. O mapa é montado em `build/build.luau`.
 
 ## Prévia do mapa (render simplificado, sem texturas/textos)
-| Visão geral | Lobby | Zona de chute |
-|---|---|---|
-| ![](docs/preview/overview.png) | ![](docs/preview/lobby.png) | ![](docs/preview/kick.png) |
+| Visão geral | Base de pets | Weight Shop | Pista |
+|---|---|---|---|
+| ![](docs/preview/overview.png) | ![](docs/preview/base.png) | ![](docs/preview/stands.png) | ![](docs/preview/track.png) |

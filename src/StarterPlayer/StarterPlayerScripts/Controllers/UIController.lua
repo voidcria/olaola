@@ -140,7 +140,8 @@ end
 ----------------------------------------------------------------------
 -- Janelas / painéis
 ----------------------------------------------------------------------
-function UIController:CreateWindow(name: string, title: string, iconKey: string, color: Color3, size: Vector2?)
+-- tabs (opcional): { { Id = "NomeDoPainel", Text = "Texto" }, ... } -> abas no cabeçalho
+function UIController:CreateWindow(name: string, title: string, iconKey: string, color: Color3, size: Vector2?, tabs: { any }?)
 	local s = size or Vector2.new(760, 470)
 	-- root: escala responsiva / window: animação de abrir
 	local root = UI.holder({
@@ -186,13 +187,51 @@ function UIController:CreateWindow(name: string, title: string, iconKey: string,
 	UI.label({
 		Name = "Title",
 		Text = title,
-		Size = UDim2.new(1, -140, 0, 38),
+		Size = UDim2.new(if tabs then 0.3 else 1, -140, 0, 38),
 		Position = UDim2.new(0, 62, 0.5, 0),
 		AnchorPoint = Vector2.new(0, 0.5),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		MaxTextSize = 34,
 		Parent = header,
 	})
+	if tabs then
+		local tabBar = UI.new("Frame", {
+			Name = "Tabs",
+			Size = UDim2.new(0.62, -60, 0, 40),
+			Position = UDim2.new(1, -60, 0.5, 0),
+			AnchorPoint = Vector2.new(1, 0.5),
+			BackgroundTransparency = 1,
+			Parent = header,
+		})
+		UI.list(tabBar, false, 8, Enum.HorizontalAlignment.Right, Enum.VerticalAlignment.Center)
+		for i, tab in tabs do
+			local active = tab.Id == name
+			local b = UI.new("TextButton", {
+				Size = UDim2.fromOffset(170, 38),
+				BackgroundColor3 = if active then Color3.new(1, 1, 1) else T.PanelDark,
+				BackgroundTransparency = if active then 0 else 0.3,
+				AutoButtonColor = false,
+				Text = "",
+				LayoutOrder = i,
+				Parent = tabBar,
+			})
+			UI.corner(b, UDim.new(1, 0))
+			UI.label({
+				Text = tab.Text,
+				Size = UDim2.new(1, -16, 1, -10),
+				Position = UDim2.fromScale(0.5, 0.5),
+				AnchorPoint = Vector2.new(0.5, 0.5),
+				TextColor3 = if active then color else Color3.new(1, 1, 1),
+				MaxTextSize = 22,
+				Parent = b,
+			})
+			UI.interactive(b, function()
+				if not active then
+					self:OpenPanel(tab.Id)
+				end
+			end)
+		end
+	end
 
 	local close = UI.new("TextButton", {
 		Name = "Close",
@@ -362,9 +401,9 @@ local function isMenuVisible(id: string, data): boolean
 	elseif id == "Upgrades" then
 		return data.TotalKicks >= 1
 	elseif id == "EggShop" then
-		return data.TotalKicks >= 3 or data.Strength >= 250
+		return data.OwnedWeights.Iron == true or data.TotalKicks >= 4 or Formulas.PetCount(data) > 0
 	elseif id == "Pets" then
-		return Formulas.PetCount(data) > 0 or data.TotalKicks >= 6
+		return Formulas.PetCount(data) > 0
 	elseif id == "Areas" then
 		return data.BestDistance >= 120 or data.HighestArea > 1
 	elseif id == "Rebirth" then
@@ -608,7 +647,7 @@ function UIController:RefreshHud(data, previous)
 	self.Hud.Rebirths:Set(data.Rebirths, animate)
 
 	for id, button in self.Hud.MenuButtons do
-		local visible = isMenuVisible(id, data)
+		local visible = isMenuVisible(id, data) or self.Hud.HighlightTarget == id
 		if visible and not button.Visible then
 			button.Visible = true
 			if previous then
@@ -652,6 +691,41 @@ function UIController:SetAction(kind: string?, text: string?, sub: string?, colo
 	self.Hud.ActionSub.Text = sub or ""
 	if color then
 		UI.setButtonColor(action, color)
+	end
+end
+
+-- Destaca (piscando) um botão do menu ou o botão de ação ("Action"). nil = nenhum.
+function UIController:Highlight(target: string?)
+	if self.Hud.HighlightTarget == target then
+		return
+	end
+	self.Hud.HighlightTarget = target
+	local ring = self.Hud.HighlightRing
+	if not ring then
+		ring = UI.new("Frame", {
+			Name = "HighlightRing",
+			Size = UDim2.new(1, 14, 1, 14),
+			Position = UDim2.fromScale(0.5, 0.5),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			BackgroundTransparency = 1,
+			ZIndex = 10,
+		})
+		UI.corner(ring, 20)
+		UI.stroke(ring, T.Gold, 4)
+		local pulse = UI.new("UIScale", { Parent = ring })
+		game:GetService("TweenService")
+			:Create(pulse, TweenInfo.new(0.55, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), { Scale = 1.12 })
+			:Play()
+		self.Hud.HighlightRing = ring
+	end
+	local button = if target == "Action" then self.Hud.Action elseif target then self.Hud.MenuButtons[target] else nil
+	if button then
+		if target ~= "Action" then
+			button.Visible = true
+		end
+		ring.Parent = button
+	else
+		ring.Parent = nil
 	end
 end
 

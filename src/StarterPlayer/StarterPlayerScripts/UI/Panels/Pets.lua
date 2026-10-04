@@ -16,6 +16,7 @@ return function(ctx)
 	local filter = "All"
 	local selectedId: string? = nil
 	local currentData = nil
+	local placeSlot: number? = nil -- modo "colocar pet na base"
 
 	-- Barra superior
 	local top = UI.new("Frame", { Size = UDim2.new(1, 0, 0, 44), BackgroundTransparency = 1, Parent = content })
@@ -75,7 +76,7 @@ return function(ctx)
 		Parent = scroll,
 	})
 	local emptyLabel = UI.label({
-		Text = "No pets yet! Hatch eggs at the Hatchery.",
+		Text = "No pets yet! Hatch eggs in Eggs > Hatch Pets.",
 		Size = UDim2.new(1, -250, 0, 40),
 		Position = UDim2.fromOffset(0, 200),
 		TextColor3 = T.SubText,
@@ -119,6 +120,11 @@ return function(ctx)
 	local deleteArmed = false
 	local equipButton = actionButton("Equip", T.Green, -88, function()
 		if not selectedId or not currentData then
+			return
+		end
+		local placed = Formulas.PlacedSlot(currentData, selectedId)
+		if placed then
+			ctx.UIController:Invoke("BaseAction", "PickUp", tonumber(placed), nil)
 			return
 		end
 		local action = if table.find(currentData.Equipped, selectedId) then "Unequip" else "Equip"
@@ -187,8 +193,14 @@ return function(ctx)
 			UI.setViewportModel(detailView, PetModels.Build(owned.N))
 		end
 		local equipped = table.find(data.Equipped, selectedId) ~= nil
-		UI.setButtonText(equipButton, if equipped then "Unequip" else "Equip")
-		UI.setButtonColor(equipButton, if equipped then T.Orange else T.Green)
+		local placed = Formulas.PlacedSlot(data, selectedId :: string) ~= nil
+		if placed then
+			UI.setButtonText(equipButton, "Remove from Base")
+			UI.setButtonColor(equipButton, T.Blue)
+		else
+			UI.setButtonText(equipButton, if equipped then "Unequip" else "Equip")
+			UI.setButtonColor(equipButton, if equipped then T.Orange else T.Green)
+		end
 		UI.setButtonText(lockButton, if owned.L then "Unlock" else "Lock")
 		deleteButton.Visible = not owned.L
 	end
@@ -218,18 +230,31 @@ return function(ctx)
 		UI.corner(equippedBadge, UDim.new(1, 0))
 		UI.stroke(equippedBadge, Color3.fromRGB(20, 90, 40), 2)
 		UI.label({ Text = "E", Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Parent = equippedBadge })
+		local baseBadge = UI.new("Frame", { Size = UDim2.fromOffset(44, 20), Position = UDim2.fromOffset(4, 4), BackgroundColor3 = T.Blue, Visible = false, Parent = card })
+		UI.corner(baseBadge, UDim.new(1, 0))
+		UI.label({ Text = "BASE", Size = UDim2.new(1, -6, 1, -4), Position = UDim2.fromScale(0.5, 0.5), AnchorPoint = Vector2.new(0.5, 0.5), Parent = baseBadge })
 		local lockBadge = UI.icon("Lock", 22)
 		lockBadge.Position = UDim2.new(1, -26, 0, 4)
 		lockBadge.Visible = false
 		lockBadge.Parent = card
 		UI.interactive(card, function()
+			if placeSlot then
+				local slot = placeSlot
+				local ok = ctx.UIController:Invoke("BaseAction", "Place", slot, petId)
+				if ok then
+					ctx.UIController:Toast(petName .. " placed on your base!", "Success")
+					ctx.Controllers.SoundController:Play("Reveal")
+					ctx.UIController:ClosePanel()
+				end
+				return
+			end
 			selectedId = petId
 			deleteArmed = false
 			if currentData then
 				setDetail(currentData)
 			end
 		end)
-		return { Card = card, Equipped = equippedBadge, Lock = lockBadge, Stroke = stroke, Name = petName }
+		return { Card = card, Equipped = equippedBadge, Base = baseBadge, Lock = lockBadge, Stroke = stroke, Name = petName }
 	end
 
 	for i, name in filterNames do
@@ -254,7 +279,13 @@ return function(ctx)
 	function panel:Refresh(data)
 		currentData = data
 		local total = Formulas.PetCount(data)
-		countLabel.Text = string.format("%d/%d Pets   |   %d/%d Equipped", total, Config.Pets.MaxInventory, #data.Equipped, Formulas.MaxEquipped(data))
+		if placeSlot then
+			countLabel.Text = "Choose a pet for slot " .. placeSlot
+			countLabel.TextColor3 = T.Gold
+		else
+			countLabel.Text = string.format("%d/%d Pets   |   %d/%d Equipped", total, Config.Pets.MaxInventory, #data.Equipped, Formulas.MaxEquipped(data))
+			countLabel.TextColor3 = T.Text
+		end
 		for name, stroke in filterButtons do
 			stroke.Thickness = if name == filter then 3 else 0
 		end
@@ -292,10 +323,12 @@ return function(ctx)
 				cards[petId] = card
 			end
 			local pet = PetConfig.Get(owned.N)
-			local visible = filter == "All" or pet.Rarity == filter
+			local placed = Formulas.PlacedSlot(data, petId) ~= nil
+			local visible = (filter == "All" or pet.Rarity == filter) and not (placeSlot and placed)
 			card.Card.Visible = visible
 			card.Card.LayoutOrder = order
 			card.Equipped.Visible = table.find(data.Equipped, petId) ~= nil
+			card.Base.Visible = placed
 			card.Lock.Visible = owned.L == true
 			card.Card.BackgroundColor3 = if petId == selectedId then T.PanelLight:Lerp(Color3.new(1, 1, 1), 0.2) else T.PanelLight
 			if visible then
@@ -303,8 +336,19 @@ return function(ctx)
 			end
 		end
 		emptyLabel.Visible = shown == 0
-		emptyLabel.Text = if total == 0 then "No pets yet! Hatch eggs at the Hatchery." else "No " .. filter .. " pets"
+		emptyLabel.Text = if total == 0 then "No pets yet! Hatch eggs in Eggs > Hatch Pets." elseif placeSlot then "No free pets to place" else "No " .. filter .. " pets"
 		setDetail(data)
+	end
+
+	function panel:OnOpen(args)
+		placeSlot = if type(args) == "table" and args.Mode == "Place" then args.Slot else nil
+		if currentData or ctx.Controllers.DataController:Get() then
+			self:Refresh(currentData or ctx.Controllers.DataController:Get())
+		end
+	end
+
+	function panel:OnClose()
+		placeSlot = nil
 	end
 
 	return panel

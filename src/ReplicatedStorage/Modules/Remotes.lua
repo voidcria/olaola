@@ -9,10 +9,11 @@ local EVENTS = {
 	"KickRequest", -- C->S  pedido de chute (sem valores: o servidor calcula tudo)
 	"FlightStarted", -- S->Todos  um ovo foi chutado (dados da trajetória)
 	"FlightLanded", -- S->C  resultado do chute (moedas, recorde)
-	"TrainRequest", -- C->S  treino na estação (id da estação)
+	"TrainRequest", -- C->S  levantar o peso (o servidor confere se está segurando)
 	"TrainResult", -- S->C  ganho de força
 	"HatchResult", -- S->C  resultado da roleta
 	"Celebrate", -- S->C  rebirth / desbloqueios
+	"BaseCollected", -- S->C  moedas coletadas na base (quantia, slot)
 }
 
 local FUNCTIONS = {
@@ -26,6 +27,9 @@ local FUNCTIONS = {
 	"SetSetting",
 	"SetAuto",
 	"GetLeaderboard",
+	"BuyWeight",
+	"EquipWeight",
+	"BaseAction",
 }
 
 local Remotes = {}

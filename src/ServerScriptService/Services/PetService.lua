@@ -58,7 +58,9 @@ end
 local function equipBest(data)
 	local ids = {}
 	for petId in data.Pets do
-		table.insert(ids, petId)
+		if not Formulas.PlacedSlot(data, petId) then
+			table.insert(ids, petId)
+		end
 	end
 	table.sort(ids, function(a, b)
 		return PetConfig.Score(data.Pets[a].N) > PetConfig.Score(data.Pets[b].N)
@@ -78,6 +80,9 @@ function actions.Equip(data, petId)
 	end
 	if table.find(data.Equipped, petId) then
 		return true
+	end
+	if Formulas.PlacedSlot(data, petId) then
+		return false, "This pet is on your base. Pick it up first!"
 	end
 	if #data.Equipped >= Formulas.MaxEquipped(data) then
 		return false, "All pet slots are full"
@@ -110,6 +115,9 @@ function actions.Delete(data, petId)
 	end
 	if pet.L then
 		return false, "This pet is locked"
+	end
+	if Formulas.PlacedSlot(data, petId) then
+		return false, "Pick this pet up from your base first"
 	end
 	actions.Unequip(data, petId)
 	data.Pets[petId] = nil

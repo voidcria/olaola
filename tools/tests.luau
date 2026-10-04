@@ -95,6 +95,32 @@ eq(F.MaxEquipped(data), 3, "slots base")
 data.Rebirths = 2
 eq(F.MaxEquipped(data), 4, "slot extra com 2 rebirths")
 
+-- Pesos e base
+local Weights = load("WeightConfig")
+local BaseConfig = load("BaseConfig")
+local d2 = { Coins = 200, Strength = 0, Rebirths = 0, Upgrades = { KickPower = 0, StrengthGain = 0, CoinGain = 0, WalkSpeed = 0 }, Pets = { a = { N = "Chick" }, b = { N = "Piglet" } }, Equipped = {}, OwnedWeights = { Wooden = true }, EquippedWeight = "Wooden", Base = { Unlocked = 4, Slots = { ["1"] = { Pet = "a", Stored = 0 } } } }
+eq(F.TrainGain(d2), 1, "peso inicial dá 1")
+eq(F.NextWeight(d2), "Iron", "próximo peso")
+ok(F.CanBuyWeight(d2, "Iron"), "pode comprar Iron com 200 moedas")
+ok(not F.CanBuyWeight(d2, "Diamond"), "Diamond exige rebirth")
+d2.OwnedWeights.Iron = true
+d2.EquippedWeight = "Iron"
+eq(F.TrainGain(d2), 3, "Iron dá 3")
+eq(F.PlacedSlot(d2, "a"), "1", "pet na base")
+eq(F.PlacedSlot(d2, "b"), nil, "pet fora da base")
+eq(F.PlacedCount(d2), 1, "contagem da base")
+ok(math.abs(F.BaseIncome(d2) - BaseConfig.RarityIncome.Common * 1.10) < 1e-9, "renda da base")
+local lastCost = -1
+for _, id in Weights.Order do
+	ok(Weights.Get(id).Cost > lastCost, "pesos ficam mais caros: " .. id)
+	lastCost = Weights.Get(id).Cost
+end
+for slot = 1, BaseConfig.SlotCount do
+	local x, z = BaseConfig.SlotLocal(slot)
+	ok(x ~= nil and z ~= nil, "slot " .. slot .. " tem posição")
+	if slot > BaseConfig.FreeSlots then ok(BaseConfig.SlotCosts[slot] ~= nil, "slot " .. slot .. " tem preço") end
+end
+
 -- Consistência das configs
 for _, id in Eggs.Order do
 	local egg = Eggs.Get(id)

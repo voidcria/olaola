@@ -7,7 +7,8 @@ local PetConfig = require(Modules.PetConfig)
 local UpgradeConfig = require(Modules.UpgradeConfig)
 local RebirthConfig = require(Modules.RebirthConfig)
 local AreaConfig = require(Modules.AreaConfig)
-local TrainConfig = require(Modules.TrainConfig)
+local WeightConfig = require(Modules.WeightConfig)
+local BaseConfig = require(Modules.BaseConfig)
 
 local Formulas = {}
 
@@ -46,31 +47,76 @@ function Formulas.StrengthMultiplier(data): number
 	return Formulas.UpgradeValue(data, "StrengthGain") * Formulas.PetBonus(data).Strength * rebirth.Strength
 end
 
-function Formulas.TrainGain(data, stationId: number): number
-	local station = TrainConfig.Get(stationId)
-	if not station then
-		return 0
-	end
-	return math.max(1, math.floor(station.Gain * Formulas.StrengthMultiplier(data)))
+-- Strength ganho por levantada com o peso (padrão: o peso equipado)
+function Formulas.TrainGain(data, weightId: string?): number
+	local weight = WeightConfig.Get(weightId or data.EquippedWeight or "Wooden") or WeightConfig.Get("Wooden")
+	return math.max(1, math.floor(weight.Gain * Formulas.StrengthMultiplier(data)))
 end
 
-function Formulas.CanUseStation(data, stationId: number): boolean
-	local station = TrainConfig.Get(stationId)
-	if not station then
-		return false
-	end
-	return (data.Strength or 0) >= station.StrengthRequired and (data.Rebirths or 0) >= station.RebirthsRequired
-end
-
--- Melhor estação disponível (usada pelo Auto Train)
-function Formulas.BestStation(data): number
-	local best = 1
-	for _, station in TrainConfig.Stations do
-		if Formulas.CanUseStation(data, station.Id) then
-			best = station.Id
+-- Próximo peso ainda não comprado (ou nil se já tem todos)
+function Formulas.NextWeight(data): string?
+	for _, id in WeightConfig.Order do
+		if not (data.OwnedWeights and data.OwnedWeights[id]) then
+			return id
 		end
 	end
-	return best
+	return nil
+end
+
+function Formulas.CanBuyWeight(data, weightId: string): boolean
+	local w = WeightConfig.Get(weightId)
+	return w ~= nil
+		and not (data.OwnedWeights and data.OwnedWeights[weightId])
+		and (data.Rebirths or 0) >= w.RebirthsRequired
+		and (data.Coins or 0) >= w.Cost
+end
+
+----------------------------------------------------------------------
+-- Base (pets nos pedestais)
+----------------------------------------------------------------------
+-- Slot (string) onde o pet está na base, ou nil
+function Formulas.PlacedSlot(data, petId: string): string?
+	local slots = data.Base and data.Base.Slots
+	if not slots then
+		return nil
+	end
+	for slot, entry in slots do
+		if entry.Pet == petId then
+			return slot
+		end
+	end
+	return nil
+end
+
+function Formulas.PlacedCount(data): number
+	local n = 0
+	for _, entry in (data.Base and data.Base.Slots) or {} do
+		if entry.Pet then
+			n += 1
+		end
+	end
+	return n
+end
+
+-- Moedas por segundo de um pet na base
+function Formulas.PetIncome(data, petName: string): number
+	local pet = PetConfig.Get(petName)
+	if not pet then
+		return 0
+	end
+	local rebirth = RebirthConfig.Multipliers(data.Rebirths or 0)
+	return (BaseConfig.RarityIncome[pet.Rarity] or 1) * pet.Coins * rebirth.Coins
+end
+
+function Formulas.BaseIncome(data): number
+	local total = 0
+	for _, entry in (data.Base and data.Base.Slots) or {} do
+		local owned = entry.Pet and data.Pets[entry.Pet]
+		if owned then
+			total += Formulas.PetIncome(data, owned.N)
+		end
+	end
+	return total
 end
 
 function Formulas.KickMultiplier(data): number

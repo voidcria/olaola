@@ -9,6 +9,7 @@ local Remotes = require(Modules.Remotes)
 
 local DataService = require(script.Parent.DataService)
 local PetService = require(script.Parent.PetService)
+local BaseService = require(script.Parent.BaseService)
 local RateLimiter = require(ServerScriptService.Util.RateLimiter)
 
 local RebirthService = {}
@@ -36,6 +37,7 @@ function RebirthService:Start()
 		end
 		data.Rebirths += 1
 		PetService:UpdateEquippedAttribute(player)
+		BaseService:Refresh(player)
 		DataService:ReplicateNow(player)
 		Remotes.Event("Celebrate"):FireClient(player, "Rebirth", data.Rebirths)
 		return true, data.Rebirths

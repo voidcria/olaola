@@ -18,9 +18,9 @@ local Eggs = load("EggConfig")
 local Areas = load("AreaConfig")
 local RB = load("RebirthConfig")
 local NF = load("NumberFormat")
-local Train = load("TrainConfig")
+local Weights = load("WeightConfig")
 
-local d = { Coins = 0, Strength = 0, Rebirths = 0, BestDistance = 0, HighestArea = 1, Upgrades = { KickPower = 0, StrengthGain = 0, CoinGain = 0, WalkSpeed = 0 }, UnlockedEggs = { Basic = true }, SelectedEgg = "Basic", Pets = {}, Equipped = {} }
+local d = { Coins = 0, Strength = 0, Rebirths = 0, BestDistance = 0, HighestArea = 1, Upgrades = { KickPower = 0, StrengthGain = 0, CoinGain = 0, WalkSpeed = 0 }, UnlockedEggs = { Basic = true }, SelectedEgg = "Basic", Pets = {}, Equipped = {}, OwnedWeights = { Wooden = true }, EquippedWeight = "Wooden", Base = { Slots = {} } }
 local t = 0
 local log = {}
 local function note(s) table.insert(log, string.format("[%6s] %s", NF.Time(t), s)) end
@@ -51,12 +51,16 @@ local function shop()
 		local bestEgg = F.KickEgg(d)
 		local e = Eggs.Get(bestEgg)
 		hatches[bestEgg] = hatches[bestEgg] or 0
-		if hatches[bestEgg] < 4 and d.Coins >= e.HatchCost then
+		if hatches[bestEgg] < 4 and d.Coins >= e.HatchCost and (d.OwnedWeights.Iron or hatches[bestEgg] > 0) then
 			d.Coins -= e.HatchCost hatches[bestEgg] += 1
 			petN += 1
 			d.Pets["p" .. petN] = { N = e.Pets[1].Pet }
 			table.insert(d.Equipped, 1, "p" .. petN)
 			while #d.Equipped > F.MaxEquipped(d) do table.remove(d.Equipped) end
+			-- uma cópia na base também (simplificação: pets repetidos na base)
+			local slot = tostring(math.min(petN, 4))
+			d.Pets["b" .. petN] = { N = e.Pets[1].Pet }
+			d.Base.Slots[slot] = { Pet = "b" .. petN }
 			bought = true
 		end
 		-- poupa para a próxima meta se os outros requisitos já foram cumpridos
@@ -66,6 +70,12 @@ local function shop()
 			if F.MeetsRequirements(d, r) then saving = math.max(saving, nextA.Requirements.Coins or 0) end
 		end
 		if d.Strength >= RB.StrengthRequired(d.Rebirths) then saving = math.max(saving, RB.CoinCost(d.Rebirths)) end
+		-- pesos: compra o próximo assim que puder
+		local nw = F.NextWeight(d)
+		if nw and F.CanBuyWeight(d, nw) then
+			d.Coins -= Weights.Get(nw).Cost d.OwnedWeights[nw] = true d.EquippedWeight = nw bought = true
+			note("Bought " .. Weights.Get(nw).Name)
+		end
 		local cheapest, cc
 		for _, id in Up.Order do
 			local lvl = d.Upgrades[id]
@@ -80,7 +90,8 @@ end
 local nextReport = 60
 while t < 12 * 3600 do
 	-- treina 15s (3 cliques/s)
-	for i = 1, 38 do d.Strength += F.TrainGain(d, F.BestStation(d)) end
+	for i = 1, 38 do d.Strength += F.TrainGain(d) end
+	local before = t
 	t += 15 + 6
 	for k = 1, 3 do
 		local egg = F.KickEgg(d)
@@ -93,6 +104,7 @@ while t < 12 * 3600 do
 		t += F.FlightTime(dist) + 1.2
 	end
 	t += 6
+	d.Coins += F.BaseIncome(d) * (t - before)
 	shop()
 	if t >= nextReport then
 		note(("Str %s  Coins %s  Best %s  Area %d  Egg %s  R%d  Ups K%d S%d C%d W%d"):format(NF.Abbreviate(d.Strength), NF.Abbreviate(d.Coins), NF.Distance(d.BestDistance), d.HighestArea, F.KickEgg(d), d.Rebirths, d.Upgrades.KickPower, d.Upgrades.StrengthGain, d.Upgrades.CoinGain, d.Upgrades.WalkSpeed))

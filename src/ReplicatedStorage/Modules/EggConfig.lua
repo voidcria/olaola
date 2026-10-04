@@ -1,5 +1,5 @@
 -- Ovos do jogo.
--- Cada ovo pode ser CHUTADO (depois de desbloqueado) e CHOCADO na Hatchery (gera pets).
+-- Cada ovo pode ser CHUTADO (depois de desbloqueado) e CHOCADO no menu Eggs > Hatch Pets (gera pets).
 --   StrengthRequired: força mínima para desbloquear/chutar
 --   UnlockCost: moedas para desbloquear
 --   CoinMultiplier: multiplicador de moedas ao chutar este ovo

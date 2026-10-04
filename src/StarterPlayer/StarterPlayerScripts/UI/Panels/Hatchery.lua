@@ -11,7 +11,10 @@ local PetModels = require(Modules.Models.PetModels)
 return function(ctx)
 	local UI = ctx.UI
 	local T = UI.Theme
-	local window, content = ctx.UIController:CreateWindow("Hatchery", "HATCHERY", "Pets", Color3.fromRGB(120, 220, 120), Vector2.new(820, 480))
+	local window, content = ctx.UIController:CreateWindow("Hatchery", "EGGS", "Eggs", Color3.fromRGB(255, 196, 64), Vector2.new(820, 480), {
+		{ Id = "EggShop", Text = "Kick Eggs" },
+		{ Id = "Hatchery", Text = "Hatch Pets" },
+	})
 
 	local selected = "Basic"
 	local busy = false

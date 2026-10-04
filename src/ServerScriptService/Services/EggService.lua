@@ -5,7 +5,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local Modules = ReplicatedStorage:WaitForChild("Modules")
 local EggConfig = require(Modules.EggConfig)
-local TrackConfig = require(Modules.TrackConfig)
 local Remotes = require(Modules.Remotes)
 
 local DataService = require(script.Parent.DataService)
@@ -18,18 +17,6 @@ local EggService = {}
 local rng = Random.new()
 local shopLimiter = RateLimiter.new(5, 5)
 local hatchLimiter = RateLimiter.new(1 / 1.5, 1)
-local HATCH_RADIUS = 34
-
-local function nearStand(player: Player, standName: string): boolean
-	local stand = TrackConfig.Stands[standName]
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not stand or not root then
-		return false
-	end
-	local dx, dz = root.Position.X - stand.X, root.Position.Z - stand.Z
-	return dx * dx + dz * dz <= HATCH_RADIUS * HATCH_RADIUS
-end
 
 -- Sorteio ponderado pelas chances do ovo
 function EggService:RollPet(eggId: string)
@@ -111,9 +98,6 @@ function EggService:Start()
 		end
 		if not data.UnlockedEggs[eggId] then
 			return false, "Unlock this egg at the Egg Shop first"
-		end
-		if not nearStand(player, "Hatchery") then
-			return false, "Go to the Hatchery to hatch eggs"
 		end
 		if PetService:IsInventoryFull(data) then
 			return false, "Your pet inventory is full!"

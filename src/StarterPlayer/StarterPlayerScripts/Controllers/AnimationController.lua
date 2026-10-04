@@ -105,6 +105,14 @@ function AnimationController:PlayTrain(character: Model?)
 	if playAnimationId(character, "Train") then
 		return
 	end
+	-- Segurando o peso: levanta o braço direito (desenvolvimento acima da cabeça)
+	if character:FindFirstChildOfClass("Tool") then
+		local motor, isR15 = getMotor(character, "RightUpperArm", "RightShoulder", "Right Shoulder")
+		if motor then
+			playSequence(motor, isR15, { { 75, 0.09 }, { 65, 0.08 } }, 1)
+		end
+		return
+	end
 	alternate = not alternate
 	local motor, isR15
 	if alternate then

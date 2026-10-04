@@ -294,7 +294,7 @@ local function step(_dt: number)
 	if inZone and not localFlight then
 		updateRestEgg(true, root)
 		local data = controllers.DataController:Get()
-		if data and ui.Hud.ActionKind ~= "Train" then
+		if data then
 			local eggId = Formulas.KickEgg(data)
 			local egg = EggConfig.Get(eggId)
 			ui:SetAction("Kick", "KICK!", egg.Name .. "  " .. NumberFormat.Multiplier(Formulas.CoinMultiplier(data, eggId)) .. " Coins", T.Orange)

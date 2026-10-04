@@ -14,19 +14,58 @@ local TrackConfig = {
 	KickZone = { MinX = -56, MaxX = 56, MinZ = 0, MaxZ = 34, Height = 30 },
 
 	-- Lobby (atrás da linha de chute)
-	Lobby = { MinX = -130, MaxX = 130, MinZ = 0, MaxZ = 260 },
-	Spawn = { X = 0, Z = 205 },
+	Lobby = { MinX = -178, MaxX = 178, MinZ = 0, MaxZ = 300 },
+	Spawn = { X = 0, Z = 150 },
 
-	-- Barracas / stands (posição do centro do balcão; olham para Facing)
+	-- Barracas: uma de cada lado da pista. Facing = direção (X) para onde a frente aponta.
 	Stands = {
-		EggShop = { X = 92, Z = 82, Title = "EGG SHOP", Subtitle = "Unlock & choose eggs", Color = { 255, 196, 64 } },
-		Hatchery = { X = 92, Z = 132, Title = "HATCHERY", Subtitle = "Hatch pets!", Color = { 120, 220, 120 } },
-		Upgrades = { X = 92, Z = 182, Title = "UPGRADES", Subtitle = "Get stronger", Color = { 80, 170, 255 } },
-		Rebirth = { X = -15, Z = 238, Title = "REBIRTH", Subtitle = "Reset for power", Color = { 180, 100, 255 } },
-		Areas = { X = 82, Z = 30, Title = "AREAS", Subtitle = "Unlock new areas", Color = { 255, 120, 90 } },
+		WeightShop = {
+			X = -82,
+			Z = 66,
+			Facing = 1,
+			Title = "WEIGHT SHOP",
+			Subtitle = "New weights = more Strength",
+			Color = { 255, 140, 60 },
+			Panel = "Weights",
+			Action = "Buy Weights",
+		},
+		Rebirth = {
+			X = 82,
+			Z = 66,
+			Facing = -1,
+			Title = "REBIRTH",
+			Subtitle = "Reset for permanent power",
+			Color = { 180, 100, 255 },
+			Panel = "Rebirth",
+			Action = "Rebirth",
+		},
 	},
 
-	Leaderboard = { X = 40, Z = 250 },
+	-- Bases dos jogadores (pets). Facing = direção (X) da entrada (virada para a rua central).
+	Bases = {
+		{ X = -148, Z = 130, Facing = 1, Color = { 255, 150, 180 } },
+		{ X = 148, Z = 130, Facing = -1, Color = { 120, 190, 255 } },
+		{ X = -148, Z = 194, Facing = 1, Color = { 140, 220, 120 } },
+		{ X = 148, Z = 194, Facing = -1, Color = { 255, 210, 90 } },
+		{ X = -148, Z = 258, Facing = 1, Color = { 190, 140, 255 } },
+		{ X = 148, Z = 258, Facing = -1, Color = { 255, 160, 90 } },
+	},
+	BaseSize = { Width = 58, Depth = 52 }, -- Width = ao longo de Z, Depth = ao longo de X
+
+	-- Paredes cartunescas em volta de todo o mapa
+	Walls = {
+		TrackHalfWidth = 148, -- distância do centro da pista até a parede lateral
+		Thickness = 12,
+		Height = 40,
+	},
+
+	Leaderboard = { X = 0, Z = 290 },
 }
+
+-- Ponto em frente a uma barraca (usado pela seta do tutorial)
+function TrackConfig.StandFront(name: string): (number, number)
+	local s = TrackConfig.Stands[name]
+	return s.X + s.Facing * 12, s.Z
+end
 
 return TrackConfig

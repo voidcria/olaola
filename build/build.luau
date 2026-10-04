@@ -54,7 +54,7 @@ end
 
 local TrackConfig = loadConfig("TrackConfig")
 local AreaConfig = loadConfig("AreaConfig")
-local TrainConfig = loadConfig("TrainConfig")
+local BaseConfig = loadConfig("BaseConfig")
 
 ----------------------------------------------------------------------
 -- Helpers
@@ -198,52 +198,95 @@ new("SunRaysEffect", { Intensity = 0.04, Spread = 0.6 }, Lighting)
 Workspace.Gravity = 196.2
 
 StarterPlayer.CharacterWalkSpeed = 16
+-- Uma base por jogador: 6 bases = 6 jogadores por servidor
+pcall(function()
+	game:GetService("Players").MaxPlayers = #TrackConfig.Bases
+end)
 StarterPlayer.CharacterJumpPower = 50
 
 local map = folder("Map", Workspace)
 
 ----------------------------------------------------------------------
+-- PAREDES CARTUNESCAS (estilo do jogo de referência: parede grossa + topo arredondado)
+----------------------------------------------------------------------
+local WALL = TrackConfig.Walls
+local WALL_THEMES = {
+	Meadow = { Body = rgb(150, 95, 55), Band = rgb(110, 68, 40), Top = rgb(231, 104, 24), Pillar = rgb(125, 80, 45) },
+	Desert = { Body = rgb(215, 160, 95), Band = rgb(180, 125, 70), Top = rgb(250, 205, 120), Pillar = rgb(195, 140, 80) },
+	Snow = { Body = rgb(150, 185, 220), Band = rgb(120, 150, 190), Top = rgb(245, 250, 255), Pillar = rgb(130, 165, 205) },
+	Lava = { Body = rgb(80, 48, 42), Band = rgb(58, 32, 28), Top = rgb(255, 105, 35), Pillar = rgb(64, 38, 34) },
+	Cosmic = { Body = rgb(72, 46, 132), Band = rgb(52, 32, 102), Top = rgb(190, 130, 255), Pillar = rgb(60, 40, 115) },
+}
+local AREA_THEME = { "Meadow", "Desert", "Snow", "Lava", "Cosmic" }
+local wallsFolder
+
+-- Parede de A até B (no chão), com faixa, topo arredondado e pilares
+local function cartoonWall(a, b, themeName: string, pillarSpacing: number?)
+	local theme = WALL_THEMES[themeName]
+	local dir = b - a
+	local total = dir.Magnitude
+	local unit = dir.Unit
+	local h = WALL.Height
+	local th = WALL.Thickness
+	local chunks = math.ceil(total / 1800)
+	for c = 0, chunks - 1 do
+		local s = a + unit * (total * c / chunks)
+		local e = a + unit * (total * (c + 1) / chunks)
+		local len = (e - s).Magnitude
+		local mid = (s + e) / 2
+		local cf = CFrame.lookAt(mid, mid + unit) -- -Z ao longo da parede
+		part(wallsFolder, "Wall", Vector3.new(th, h, len + th), cf * CFrame.new(0, FLOOR + h / 2 - mid.Y, 0), theme.Body, Enum.Material.SmoothPlastic)
+		deco(part(wallsFolder, "WallBand", Vector3.new(th + 0.8, 3.5, len + th), cf * CFrame.new(0, FLOOR + 6 - mid.Y, 0), theme.Band, Enum.Material.SmoothPlastic))
+		deco(part(wallsFolder, "WallBand", Vector3.new(th + 0.8, 1.6, len + th), cf * CFrame.new(0, FLOOR + h - 4 - mid.Y, 0), theme.Band, Enum.Material.SmoothPlastic))
+		-- topo arredondado (cilindro deitado ao longo da parede)
+		deco(part(wallsFolder, "WallTop", Vector3.new(len + th + 2, th + 5, th + 5), cf * CFrame.new(0, FLOOR + h + 1 - mid.Y, 0) * CFrame.Angles(0, math.rad(90), 0), theme.Top, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder))
+	end
+	local spacing = pillarSpacing or 90
+	local count = math.floor(total / spacing)
+	for i = 0, count do
+		local pos = a + unit * math.min(i * spacing, total)
+		local cf = CFrame.lookAt(pos, pos + unit)
+		part(wallsFolder, "Pillar", Vector3.new(th + 6, h + 6, th + 6), cf * CFrame.new(0, FLOOR + (h + 6) / 2 - pos.Y, 0), theme.Pillar, Enum.Material.SmoothPlastic)
+		deco(part(wallsFolder, "PillarCap", Vector3.new(th + 9, th + 9, th + 9), cf * CFrame.new(0, FLOOR + h + 8 - pos.Y, 0), theme.Top, Enum.Material.SmoothPlastic, Enum.PartType.Ball))
+	end
+end
+
+----------------------------------------------------------------------
 -- LOBBY
 ----------------------------------------------------------------------
 local lobby = folder("Lobby", map)
+wallsFolder = folder("Walls", map)
 local L = TrackConfig.Lobby
 local lobbyW = L.MaxX - L.MinX
 local lobbyD = L.MaxZ - L.MinZ
 local lobbyCenter = Vector3.new((L.MinX + L.MaxX) / 2, FLOOR - 2, (L.MinZ + L.MaxZ) / 2)
+local WX = L.MaxX + WALL.Thickness / 2 + 1 -- linha das paredes laterais do lobby
+local WZ = L.MaxZ + WALL.Thickness / 2 + 1 -- linha da parede do fundo
 
-part(lobby, "Ground", Vector3.new(lobbyW, 4, lobbyD), CFrame.new(lobbyCenter), rgb(110, 200, 90), Enum.Material.Grass)
--- base mais larga (borda do lobby)
-part(lobby, "Base", Vector3.new(lobbyW + 60, 6, lobbyD + 60), CFrame.new(lobbyCenter + Vector3.new(0, -3.2, 15)), rgb(95, 170, 80), Enum.Material.Grass)
+part(lobby, "Ground", Vector3.new(WX * 2 + 20, 4, lobbyD + 30), CFrame.new(lobbyCenter + Vector3.new(0, 0, 6)), rgb(110, 200, 90), Enum.Material.Grass)
 
--- Caminhos
+-- Caminhos (rua central, ida às barracas e às bases)
 local pathColor = rgb(235, 225, 200)
-part(lobby, "PathMain", Vector3.new(26, 0.2, lobbyD - 30), CFrame.new(0, FLOOR + 0.05, L.MinZ + 30 + (lobbyD - 30) / 2), pathColor, Enum.Material.Pavement)
-part(lobby, "PathCross1", Vector3.new(lobbyW - 40, 0.2, 18), CFrame.new(0, FLOOR + 0.05, 112), pathColor, Enum.Material.Pavement)
-part(lobby, "PathCross2", Vector3.new(lobbyW - 40, 0.2, 18), CFrame.new(0, FLOOR + 0.05, 182), pathColor, Enum.Material.Pavement)
-
--- Cercas laterais e do fundo
-local fenceColor = rgb(255, 250, 240)
-local function fenceLine(fromV, toV)
-	local dir = toV - fromV
-	local len = dir.Magnitude
-	local cf = CFrame.lookAt(fromV, toV) * CFrame.new(0, 0, -len / 2)
-	part(lobby, "FenceRail", Vector3.new(0.6, 0.6, len), cf * CFrame.new(0, 2.6, 0), fenceColor, Enum.Material.Wood)
-	part(lobby, "FenceRail", Vector3.new(0.6, 0.6, len), cf * CFrame.new(0, 1.4, 0), fenceColor, Enum.Material.Wood)
-	local posts = math.floor(len / 8)
-	for i = 0, posts do
-		local pos = fromV + dir.Unit * (i * len / posts)
-		part(lobby, "FencePost", Vector3.new(1, 3.6, 1), CFrame.new(pos + Vector3.new(0, 1.8, 0)), fenceColor, Enum.Material.Wood)
+part(lobby, "PathMain", Vector3.new(26, 0.2, L.MaxZ - 34), CFrame.new(0, FLOOR + 0.05, 34 + (L.MaxZ - 34) / 2), pathColor, Enum.Material.Pavement)
+part(lobby, "PathStands", Vector3.new(150, 0.2, 16), CFrame.new(0, FLOOR + 0.05, TrackConfig.Stands.WeightShop.Z), pathColor, Enum.Material.Pavement)
+for _, b in TrackConfig.Bases do
+	if b.Facing > 0 then
+		part(lobby, "PathBase", Vector3.new(240, 0.2, 14), CFrame.new(0, FLOOR + 0.05, b.Z), pathColor, Enum.Material.Pavement)
 	end
 end
-fenceLine(Vector3.new(L.MinX + 2, FLOOR, L.MinZ + 36), Vector3.new(L.MinX + 2, FLOOR, L.MaxZ - 2))
-fenceLine(Vector3.new(L.MaxX - 2, FLOOR, L.MinZ + 36), Vector3.new(L.MaxX - 2, FLOOR, L.MaxZ - 2))
-fenceLine(Vector3.new(L.MinX + 2, FLOOR, L.MaxZ - 2), Vector3.new(L.MaxX - 2, FLOOR, L.MaxZ - 2))
+
+-- Paredes do lobby (laterais, fundo e "ombros" que ligam com a pista)
+local TW = WALL.TrackHalfWidth
+cartoonWall(Vector3.new(-WX, FLOOR, -6), Vector3.new(-WX, FLOOR, WZ), "Meadow", 80)
+cartoonWall(Vector3.new(WX, FLOOR, -6), Vector3.new(WX, FLOOR, WZ), "Meadow", 80)
+cartoonWall(Vector3.new(-WX, FLOOR, WZ), Vector3.new(WX, FLOOR, WZ), "Meadow", 80)
+cartoonWall(Vector3.new(-WX, FLOOR, -6), Vector3.new(-TW, FLOOR, -6), "Meadow", 60)
+cartoonWall(Vector3.new(TW, FLOOR, -6), Vector3.new(WX, FLOOR, -6), "Meadow", 60)
 
 -- Árvores fofinhas
 local function tree(parent, pos: any, scale: number, leafColor)
 	local m = model("Tree", parent)
-	deco(part(m, "Trunk", Vector3.new(1.6, 7, 1.6) * scale, CFrame.new(pos + Vector3.new(0, 3.5 * scale, 0)), rgb(130, 90, 60), Enum.Material.Wood, Enum.PartType.Cylinder)).CFrame =
-		CFrame.new(pos + Vector3.new(0, 3.5 * scale, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	deco(part(m, "Trunk", Vector3.new(7, 1.6, 1.6) * scale, CFrame.new(pos + Vector3.new(0, 3.5 * scale, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(130, 90, 60), Enum.Material.Wood, Enum.PartType.Cylinder))
 	deco(part(m, "Leaves", Vector3.new(8, 8, 8) * scale, CFrame.new(pos + Vector3.new(0, 8.5 * scale, 0)), leafColor, Enum.Material.Grass, Enum.PartType.Ball))
 	deco(part(m, "Leaves", Vector3.new(5.5, 5.5, 5.5) * scale, CFrame.new(pos + Vector3.new(2.2 * scale, 7 * scale, 1.2 * scale)), leafColor, Enum.Material.Grass, Enum.PartType.Ball))
 	deco(part(m, "Leaves", Vector3.new(5, 5, 5) * scale, CFrame.new(pos + Vector3.new(-2 * scale, 7.4 * scale, -1.4 * scale)), leafColor, Enum.Material.Grass, Enum.PartType.Ball))
@@ -251,43 +294,50 @@ local function tree(parent, pos: any, scale: number, leafColor)
 end
 local decor = folder("Decor", lobby)
 for i, p in {
-	{ -118, 30 }, { -118, 200 }, { -118, 250 }, { 118, 230 }, { 118, 250 }, { -70, 245 }, { 60, 210 },
-	{ -150, 90 }, { -150, 170 }, { 150, 60 }, { 150, 150 }, { 150, 240 }, { -150, 250 },
+	{ -140, 22 }, { 140, 22 }, { -165, 60 }, { 165, 60 }, { -125, 82 }, { 125, 82 },
+	{ -62, 112 }, { 62, 112 }, { -62, 236 }, { 62, 236 }, { -95, 290 }, { 95, 290 },
 } do
 	tree(decor, Vector3.new(p[1], FLOOR, p[2]), 0.9 + (i % 3) * 0.15, rgb(80 + (i % 3) * 15, 185, 90))
 end
--- Flores
+-- Canteiros de flores
 local flowerColors = { rgb(255, 120, 150), rgb(255, 220, 90), rgb(170, 130, 255), rgb(255, 255, 255) }
-for i = 1, 60 do
-	local x = L.MinX + 8 + ((i * 37) % (lobbyW - 16))
-	local z = L.MinZ + 44 + ((i * 53) % (lobbyD - 50))
-	if math.abs(x) > 18 then
-		deco(part(decor, "Flower", Vector3.new(0.8, 0.8, 0.8), CFrame.new(x, FLOOR + 0.4, z), flowerColors[i % 4 + 1], Enum.Material.SmoothPlastic, Enum.PartType.Ball))
+for i = 1, 70 do
+	local side = if i % 2 == 0 then 1 else -1
+	local x = side * (32 + (i * 37) % 70)
+	local z = 96 + (i * 53) % 190
+	deco(part(decor, "Flower", Vector3.new(0.9, 0.9, 0.9), CFrame.new(x, FLOOR + 0.45, z), flowerColors[i % 4 + 1], Enum.Material.SmoothPlastic, Enum.PartType.Ball))
+end
+-- Fonte no centro do lobby
+local fountain = model("Fountain", decor)
+local FZ = 222
+part(fountain, "Basin", Vector3.new(2.4, 26, 26), CFrame.new(0, FLOOR + 1.2, FZ) * CFrame.Angles(0, 0, math.rad(90)), rgb(220, 220, 235), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+deco(part(fountain, "Water", Vector3.new(0.4, 23, 23), CFrame.new(0, FLOOR + 2.3, FZ) * CFrame.Angles(0, 0, math.rad(90)), rgb(90, 190, 255), Enum.Material.Glass, Enum.PartType.Cylinder)).Transparency = 0.2
+part(fountain, "Column", Vector3.new(8, 3, 3), CFrame.new(0, FLOOR + 5, FZ) * CFrame.Angles(0, 0, math.rad(90)), rgb(220, 220, 235), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+local fEgg = deco(part(fountain, "GoldenEgg", Vector3.new(4, 5, 4), CFrame.new(0, FLOOR + 11, FZ), rgb(255, 205, 60), Enum.Material.SmoothPlastic))
+new("SpecialMesh", { MeshType = Enum.MeshType.Sphere }, fEgg)
+new("PointLight", { Range = 14, Brightness = 1.2, Color = rgb(255, 220, 120) }, fEgg)
+-- Postes de luz ao longo da rua
+for _, z in { 50, 100, 170, 260 } do
+	for _, x in { -18, 18 } do
+		local m = model("Lamp", decor)
+		part(m, "Pole", Vector3.new(0.8, 12, 0.8), CFrame.new(x, FLOOR + 6, z), rgb(60, 60, 70), Enum.Material.Metal)
+		local bulb = deco(part(m, "Bulb", Vector3.new(2.2, 2.2, 2.2), CFrame.new(x, FLOOR + 12.5, z), rgb(255, 240, 200), Enum.Material.Neon, Enum.PartType.Ball))
+		new("PointLight", { Range = 18, Brightness = 1.2, Color = rgb(255, 230, 190) }, bulb)
 	end
 end
--- Postes de luz
-for _, p in { { 16, 60 }, { -16, 60 }, { 16, 150 }, { -16, 150 }, { 16, 230 }, { -16, 230 } } do
-	local m = model("Lamp", decor)
-	part(m, "Pole", Vector3.new(0.8, 12, 0.8), CFrame.new(p[1], FLOOR + 6, p[2]), rgb(60, 60, 70), Enum.Material.Metal)
-	local bulb = deco(part(m, "Bulb", Vector3.new(2.2, 2.2, 2.2), CFrame.new(p[1], FLOOR + 12.5, p[2]), rgb(255, 240, 200), Enum.Material.Neon, Enum.PartType.Ball))
-	new("PointLight", { Range = 18, Brightness = 1.2, Color = rgb(255, 230, 190) }, bulb)
-end
 
--- Spawn
+-- Spawn geral (o jogador é levado para a própria base depois de carregar)
 local spawn = new("SpawnLocation", {
 	Name = "Spawn",
 	Anchored = true,
-	Size = Vector3.new(14, 1, 14),
-	CFrame = CFrame.new(TrackConfig.Spawn.X, FLOOR + 0.3, TrackConfig.Spawn.Z),
+	Size = Vector3.new(1, 16, 16),
+	CFrame = CFrame.new(TrackConfig.Spawn.X, FLOOR + 0.3, TrackConfig.Spawn.Z) * CFrame.Angles(0, 0, math.rad(90)),
 	Color = rgb(255, 210, 90),
 	Material = Enum.Material.SmoothPlastic,
 	Neutral = true,
 	Duration = 0,
-	TopSurface = Enum.SurfaceType.Smooth,
 }, lobby)
 spawn.Shape = Enum.PartType.Cylinder
-spawn.Size = Vector3.new(1, 16, 16)
-spawn.CFrame = CFrame.new(TrackConfig.Spawn.X, FLOOR + 0.3, TrackConfig.Spawn.Z) * CFrame.Angles(0, 0, math.rad(90))
 
 ----------------------------------------------------------------------
 -- ZONA DE CHUTE
@@ -298,19 +348,15 @@ local kzW = KZ.MaxX - KZ.MinX
 local kzD = KZ.MaxZ - KZ.MinZ
 local pad = part(kick, "Pad", Vector3.new(kzW, 1, kzD), CFrame.new(0, FLOOR - 0.45, (KZ.MinZ + KZ.MaxZ) / 2), rgb(255, 175, 70), Enum.Material.SmoothPlastic)
 pad.CanQuery = true
--- Faixas
 for i = 0, 6 do
 	local x = KZ.MinX + 8 + i * (kzW - 16) / 6
 	deco(part(kick, "Stripe", Vector3.new(3, 0.12, kzD - 6), CFrame.new(x, FLOOR + 0.07, (KZ.MinZ + KZ.MaxZ) / 2), rgb(255, 235, 200), Enum.Material.SmoothPlastic))
 end
--- Linha de chute (neon)
 deco(part(kick, "KickLine", Vector3.new(kzW, 0.25, 1.6), CFrame.new(0, FLOOR + 0.12, TrackConfig.KickLineZ), rgb(255, 255, 255), Enum.Material.Neon))
--- Texto no chão
 local floorSign = deco(part(kick, "FloorText", Vector3.new(60, 0.1, 12), CFrame.new(0, FLOOR + 0.1, KZ.MaxZ - 9), rgb(255, 175, 70), Enum.Material.SmoothPlastic))
 floorSign.Transparency = 1
 surfaceText(floorSign, { { Text = "KICK ZONE", Color = rgb(255, 255, 255) } }, Enum.NormalId.Top, 20)
 
--- Arco "KICK AN EGG"
 local arch = model("Arch", kick)
 local archColor = rgb(255, 120, 60)
 part(arch, "PillarL", Vector3.new(5, 34, 5), CFrame.new(-64, FLOOR + 17, TrackConfig.KickLineZ + 2), archColor, Enum.Material.SmoothPlastic)
@@ -324,119 +370,51 @@ for _, x in { -64, 64 } do
 end
 
 ----------------------------------------------------------------------
--- ESTAÇÕES DE TREINO
-----------------------------------------------------------------------
-local training = folder("Training", map)
-local function stationSign(parent, station, pos)
-	local sign = deco(part(parent, "Sign", Vector3.new(10, 3.6, 0.4), CFrame.new(pos + Vector3.new(0, 11, 0)), rgb(40, 45, 80), Enum.Material.SmoothPlastic))
-	local req = if station.StrengthRequired > 0 then "Needs " .. station.StrengthRequired .. " Strength" else "Free!"
-	if station.RebirthsRequired > 0 then
-		req ..= " + " .. station.RebirthsRequired .. " Rebirth" .. (if station.RebirthsRequired > 1 then "s" else "")
-	end
-	local gui = new("BillboardGui", {
-		Name = "Label",
-		Size = UDim2.fromOffset(240, 80),
-		StudsOffset = Vector3.new(0, 1, 0),
-		MaxDistance = 90,
-		LightInfluence = 0,
-	}, sign)
-	sign.Transparency = 1
-	local title = new("TextLabel", { BackgroundTransparency = 1, Size = UDim2.fromScale(1, 0.55), Text = station.Name, TextScaled = true, FontFace = FONT, TextColor3 = rgb(255, 255, 255) }, gui)
-	new("UIStroke", { Thickness = 2.5, Color = rgb(30, 30, 50) }, title)
-	local info = new("TextLabel", { BackgroundTransparency = 1, Position = UDim2.fromScale(0, 0.55), Size = UDim2.fromScale(1, 0.4), Text = "+" .. station.Gain .. " Strength  |  " .. req, TextScaled = true, FontFace = FONT, TextColor3 = rgb(255, 200, 120) }, gui)
-	new("UIStroke", { Thickness = 2, Color = rgb(30, 30, 50) }, info)
-end
-
-for _, station in TrainConfig.Stations do
-	local m = model(station.Name, training)
-	m:SetAttribute("StationId", station.Id)
-	local pos = Vector3.new(station.X, FLOOR, station.Z)
-	local color = rgbT(station.Color)
-	-- Plataforma circular com anel
-	local base = part(m, "Pad", Vector3.new(1, 22, 22), CFrame.new(pos + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(70, 75, 110), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-	base.Name = "Pad"
-	deco(part(m, "Ring", Vector3.new(0.9, 24, 24), CFrame.new(pos + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.rad(90)), rgb(255, 200, 80), Enum.Material.Neon, Enum.PartType.Cylinder))
-	local top = FLOOR + 0.8
-	if station.Kind == "Dummy" then
-		part(m, "Post", Vector3.new(1, 5, 1), CFrame.new(pos + Vector3.new(0, 3.3, -4)), rgb(120, 85, 55), Enum.Material.Wood)
-		part(m, "Body", Vector3.new(3.2, 4, 2.2), CFrame.new(pos + Vector3.new(0, 6.5, -4)), color, Enum.Material.Fabric)
-		part(m, "Head", Vector3.new(2.4, 2.4, 2.4), CFrame.new(pos + Vector3.new(0, 9.7, -4)), color, Enum.Material.Fabric, Enum.PartType.Ball)
-		part(m, "Target", Vector3.new(0.2, 2, 2), CFrame.new(pos + Vector3.new(0, 6.5, -2.85)) * CFrame.Angles(0, math.rad(90), 0) * CFrame.Angles(0, 0, math.rad(90)), rgb(230, 60, 60), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
-	elseif station.Kind == "Tire" then
-		for i = 0, 2 do
-			local tire = part(m, "Tire", Vector3.new(1.6, 6, 6), CFrame.new(pos + Vector3.new(-3 + i * 3, top + 0.8 + (if i == 1 then 0 else 0), -3)) * CFrame.Angles(0, 0, math.rad(90)), color, Enum.Material.Rubber, Enum.PartType.Cylinder)
-			tire.CFrame = CFrame.new(pos + Vector3.new(-4 + i * 4, top + 0.8, -3)) * CFrame.Angles(0, 0, math.rad(90))
-		end
-		part(m, "BigTire", Vector3.new(2.2, 9, 9), CFrame.new(pos + Vector3.new(0, top + 4.5, 3)) * CFrame.Angles(0, math.rad(90), 0), color, Enum.Material.Rubber, Enum.PartType.Cylinder)
-	elseif station.Kind == "Dumbbell" then
-		part(m, "Rack", Vector3.new(10, 3, 2.4), CFrame.new(pos + Vector3.new(0, top + 1.5, -4)), rgb(60, 60, 70), Enum.Material.Metal)
-		for i = -1, 1 do
-			local x = i * 3.2
-			part(m, "Bar", Vector3.new(3.4, 0.5, 0.5), CFrame.new(pos + Vector3.new(x, top + 3.4, -4)), rgb(200, 200, 210), Enum.Material.Metal, Enum.PartType.Cylinder)
-			for _, s in { -1, 1 } do
-				part(m, "Weight", Vector3.new(0.6, 1.8, 1.8), CFrame.new(pos + Vector3.new(x + s * 1.5, top + 3.4, -4)), color, Enum.Material.Metal, Enum.PartType.Cylinder)
-			end
-		end
-	elseif station.Kind == "Boulder" then
-		part(m, "Boulder", Vector3.new(9, 9, 9), CFrame.new(pos + Vector3.new(0, top + 4, -3)), color, Enum.Material.Slate, Enum.PartType.Ball)
-		part(m, "Rock", Vector3.new(4, 4, 4), CFrame.new(pos + Vector3.new(4.5, top + 1.5, 2)), color, Enum.Material.Slate, Enum.PartType.Ball)
-	elseif station.Kind == "Anvil" then
-		part(m, "AnvilBase", Vector3.new(4, 3, 3), CFrame.new(pos + Vector3.new(0, top + 1.5, -3)), rgb(40, 35, 60), Enum.Material.Metal)
-		part(m, "AnvilTop", Vector3.new(8, 2, 3.4), CFrame.new(pos + Vector3.new(0, top + 4, -3)), color, Enum.Material.Neon)
-		new("PointLight", { Range = 16, Brightness = 2, Color = color }, m.AnvilTop)
-	end
-	stationSign(m, station, pos)
-end
-
-----------------------------------------------------------------------
--- BARRACAS / STANDS
+-- BARRACAS (só duas: Weight Shop e Rebirth, uma de cada lado)
 ----------------------------------------------------------------------
 local stands = folder("Stands", map)
-local PANEL_FOR = { EggShop = "EggShop", Hatchery = "Hatchery", Upgrades = "Upgrades", Rebirth = "Rebirth", Areas = "Areas" }
-local ACTION_FOR = { EggShop = "Shop Eggs", Hatchery = "Hatch Pets", Upgrades = "Upgrades", Rebirth = "Rebirth", Areas = "Unlock Areas" }
+
+local function facingRotation(facing: number)
+	-- frente (-Z local) apontando para +X (facing = 1) ou -X (facing = -1)
+	return if facing > 0 then CFrame.Angles(0, math.rad(-90), 0) else CFrame.Angles(0, math.rad(90), 0)
+end
+
+local function dumbbellDeco(parent, cf, color, scale: number)
+	deco(part(parent, "Bar", Vector3.new(3 * scale, 0.4 * scale, 0.4 * scale), cf, rgb(200, 200, 210), Enum.Material.Metal, Enum.PartType.Cylinder))
+	for _, s in { -1, 1 } do
+		deco(part(parent, "Plate", Vector3.new(0.5 * scale, 1.8 * scale, 1.8 * scale), cf * CFrame.new(s * 1.2 * scale, 0, 0), color, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder))
+	end
+end
 
 local function buildStall(key: string, def)
 	local m = model(def.Title, stands)
-	m:SetAttribute("Panel", PANEL_FOR[key])
+	m:SetAttribute("Panel", def.Panel)
 	local color = rgbT(def.Color)
-	local pos = Vector3.new(def.X, FLOOR, def.Z)
-	-- Barraca olha para o centro do lobby (x = 0)
-	local facing = if def.X > 0 then CFrame.Angles(0, math.rad(90), 0) else CFrame.Angles(0, math.rad(-90), 0)
-	if key == "Rebirth" then
-		facing = CFrame.Angles(0, 0, 0) -- olha para -Z (para a pista)
+	local base = CFrame.new(def.X, FLOOR, def.Z) * facingRotation(def.Facing)
+	part(m, "Counter", Vector3.new(18, 4, 4), base * CFrame.new(0, 2, -3), rgb(250, 245, 235), Enum.Material.Wood)
+	part(m, "CounterTrim", Vector3.new(18.4, 0.6, 4.4), base * CFrame.new(0, 4.2, -3), color, Enum.Material.SmoothPlastic)
+	part(m, "Back", Vector3.new(18, 12, 1), base * CFrame.new(0, 6, 4), rgb(240, 230, 210), Enum.Material.Wood)
+	for _, x in { -8.5, 8.5 } do
+		part(m, "Post", Vector3.new(1.2, 13, 1.2), base * CFrame.new(x, 6.5, -4.5), rgb(250, 245, 235), Enum.Material.Wood)
+		deco(part(m, "PostBall", Vector3.new(2, 2, 2), base * CFrame.new(x, 13.4, -4.5), color, Enum.Material.SmoothPlastic, Enum.PartType.Ball))
 	end
-	local base = CFrame.new(pos) * facing
-	-- Balcão (frente = -Z local)
-	local counter = part(m, "Counter", Vector3.new(16, 4, 4), base * CFrame.new(0, 2, -3), rgb(250, 245, 235), Enum.Material.Wood)
-	part(m, "CounterTrim", Vector3.new(16.4, 0.6, 4.4), base * CFrame.new(0, 4.2, -3), color, Enum.Material.SmoothPlastic)
-	part(m, "Back", Vector3.new(16, 12, 1), base * CFrame.new(0, 6, 4), rgb(240, 230, 210), Enum.Material.Wood)
-	for _, x in { -7.5, 7.5 } do
-		part(m, "Post", Vector3.new(1, 13, 1), base * CFrame.new(x, 6.5, -4.5), rgb(250, 245, 235), Enum.Material.Wood)
-	end
-	-- Toldo listrado
-	for i = 0, 7 do
+	for i = 0, 8 do
 		local stripe = if i % 2 == 0 then color else rgb(255, 255, 255)
-		wedge(m, "Awning", Vector3.new(2, 2.5, 9.5), base * CFrame.new(-7 + i * 2, 14.25, -0.5) * CFrame.Angles(0, math.rad(180), 0), stripe, Enum.Material.Fabric)
+		wedge(m, "Awning", Vector3.new(2, 2.5, 9.5), base * CFrame.new(-8 + i * 2, 14.25, -0.5) * CFrame.Angles(0, math.rad(180), 0), stripe, Enum.Material.Fabric)
 	end
-	-- Placa
-	local sign = part(m, "Sign", Vector3.new(14, 3.6, 0.6), base * CFrame.new(0, 17.4, 0.5), rgb(40, 45, 80), Enum.Material.SmoothPlastic)
+	local sign = part(m, "Sign", Vector3.new(16, 4, 0.6), base * CFrame.new(0, 17.6, 0.5), rgb(40, 45, 80), Enum.Material.SmoothPlastic)
 	surfaceText(sign, {
 		{ Text = def.Title, Color = color, Height = 0.65 },
 		{ Text = def.Subtitle, Color = rgb(255, 255, 255), Height = 0.35, Stroke = 2 },
 	}, Enum.NormalId.Front, 30)
-	-- Enfeites por tipo
-	if key == "EggShop" or key == "Hatchery" then
-		local eggColors = { rgb(250, 244, 228), rgb(110, 185, 255), rgb(175, 95, 255), rgb(255, 200, 50) }
-		for i, c in eggColors do
-			local e = deco(part(m, "DisplayEgg", Vector3.new(1.6, 2, 1.6), base * CFrame.new(-5.4 + (i - 1) * 3.6, 5.5, -3), c, Enum.Material.SmoothPlastic))
-			new("SpecialMesh", { MeshType = Enum.MeshType.Sphere }, e)
+	if key == "WeightShop" then
+		local weightColors = { rgb(170, 120, 75), rgb(120, 125, 135), rgb(70, 160, 255), rgb(255, 200, 50) }
+		for i, c in weightColors do
+			dumbbellDeco(m, base * CFrame.new(-6 + (i - 1) * 4, 5.4, -3), c, 1)
 		end
-	elseif key == "Upgrades" then
-		for i = -1, 1 do
-			local arrow = deco(wedge(m, "Arrow", Vector3.new(1, 2, 2), base * CFrame.new(i * 4, 6, -3) * CFrame.Angles(math.rad(-90), 0, 0), rgb(90, 220, 110), Enum.Material.Neon))
-			arrow.CFrame = base * CFrame.new(i * 4, 6.2, -3)
-		end
-	elseif key == "Rebirth" then
+		-- halter gigante no topo
+		dumbbellDeco(m, base * CFrame.new(0, 21.5, 0.5), color, 3)
+	else
 		local orb = deco(part(m, "Orb", Vector3.new(4, 4, 4), base * CFrame.new(0, 7.5, -3), color, Enum.Material.Neon, Enum.PartType.Ball))
 		new("PointLight", { Range = 20, Brightness = 2, Color = color }, orb)
 		new("ParticleEmitter", {
@@ -447,23 +425,129 @@ local function buildStall(key: string, def)
 			Color = ColorSequence.new(color),
 			LightEmission = 1,
 		}, orb)
-	elseif key == "Areas" then
-		for i = 0, 2 do
-			local flag = deco(part(m, "Flag", Vector3.new(0.3, 1.6, 2.4), base * CFrame.new(-4 + i * 4, 6.6, -3), rgbT(AreaConfig.Areas[i + 2].FloorColor), Enum.Material.Fabric))
-			flag.Size = Vector3.new(2.4, 1.6, 0.3)
-			part(m, "FlagPole", Vector3.new(0.25, 3.4, 0.25), base * CFrame.new(-5.3 + i * 4, 5.9, -3), rgb(200, 200, 210), Enum.Material.Metal)
+		for _, x in { -6, 6 } do
+			deco(part(m, "Crystal", Vector3.new(1.6, 4, 1.6), base * CFrame.new(x, 6.2, -3) * CFrame.Angles(0, math.rad(45), math.rad(10)), color, Enum.Material.Neon))
 		end
 	end
-	-- Interação
 	local promptPart = deco(part(m, "PromptPart", Vector3.new(4, 4, 4), base * CFrame.new(0, 3, -6), color, Enum.Material.SmoothPlastic))
 	promptPart.Transparency = 1
-	prompt(promptPart, ACTION_FOR[key], def.Title, PANEL_FOR[key])
-	-- tapete
-	deco(part(m, "Mat", Vector3.new(14, 0.2, 8), base * CFrame.new(0, 0.12, -9), color, Enum.Material.Fabric))
-	return m, counter
+	prompt(promptPart, def.Action, def.Title, def.Panel)
+	deco(part(m, "Mat", Vector3.new(16, 0.2, 9), base * CFrame.new(0, 0.12, -10), color, Enum.Material.Fabric))
+	return m
 end
 for key, def in TrackConfig.Stands do
 	buildStall(key, def)
+end
+
+----------------------------------------------------------------------
+-- BASES DOS JOGADORES (pedestais para pets, como no jogo de referência)
+----------------------------------------------------------------------
+local basesFolder = folder("Bases", map)
+local BW = TrackConfig.BaseSize.Width
+local BD = TrackConfig.BaseSize.Depth
+for index, def in TrackConfig.Bases do
+	local m = model("Base" .. index, basesFolder)
+	m:SetAttribute("BaseId", index)
+	local color = rgbT(def.Color)
+	local dark = Color3.new(color.R * 0.75, color.G * 0.75, color.B * 0.75)
+	local cf0 = CFrame.new(def.X, FLOOR, def.Z) * facingRotation(def.Facing)
+	local floor = part(m, "Floor", Vector3.new(BW, 1.2, BD), cf0 * CFrame.new(0, 0.6, 0), color, Enum.Material.SmoothPlastic)
+	m.PrimaryPart = floor
+	part(m, "FloorTrim", Vector3.new(BW + 2, 0.8, BD + 2), cf0 * CFrame.new(0, 0.4, 0), dark, Enum.Material.SmoothPlastic)
+	-- xadrez suave no chão
+	for gx = 0, 3 do
+		for gz = 0, 3 do
+			if (gx + gz) % 2 == 0 then
+				deco(part(m, "Tile", Vector3.new(BW / 4 - 0.5, 0.1, BD / 4 - 0.5), cf0 * CFrame.new(-BW / 2 + BW / 8 + gx * BW / 4, 1.22, -BD / 2 + BD / 8 + gz * BD / 4), color:Lerp(Color3.new(1, 1, 1), 0.25), Enum.Material.SmoothPlastic))
+			end
+		end
+	end
+	-- Muretas com topo arredondado (fundo, lados e frente com entrada)
+	local function lowWall(fromX, fromZ, toX, toZ)
+		local a = cf0 * CFrame.new(fromX, 0, fromZ)
+		local b = cf0 * CFrame.new(toX, 0, toZ)
+		local len = (b.Position - a.Position).Magnitude
+		local mid = (a.Position + b.Position) / 2
+		local wcf = CFrame.lookAt(mid, b.Position)
+		part(m, "Wall", Vector3.new(2.4, 6, len), wcf * CFrame.new(0, 4.2, 0), rgb(255, 250, 240), Enum.Material.SmoothPlastic)
+		deco(part(m, "WallTop", Vector3.new(len + 1, 3.4, 3.4), wcf * CFrame.new(0, 7.4, 0) * CFrame.Angles(0, math.rad(90), 0), color, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder))
+	end
+	lowWall(-BW / 2, BD / 2, BW / 2, BD / 2)
+	lowWall(-BW / 2, -BD / 2, -BW / 2, BD / 2)
+	lowWall(BW / 2, -BD / 2, BW / 2, BD / 2)
+	lowWall(-BW / 2, -BD / 2, -10, -BD / 2)
+	lowWall(10, -BD / 2, BW / 2, -BD / 2)
+	-- Postes nos cantos
+	for _, c in { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } } do
+		local pcf = cf0 * CFrame.new(c[1] * BW / 2, 0, c[2] * BD / 2)
+		part(m, "CornerPost", Vector3.new(10, 4, 4), pcf * CFrame.new(0, 5, 0) * CFrame.Angles(0, 0, math.rad(90)), dark, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		deco(part(m, "CornerBall", Vector3.new(4.6, 4.6, 4.6), pcf * CFrame.new(0, 11, 0), color, Enum.Material.SmoothPlastic, Enum.PartType.Ball))
+	end
+	-- Portal de entrada com placa do dono
+	for _, x in { -11, 11 } do
+		part(m, "GatePost", Vector3.new(2, 15, 2), cf0 * CFrame.new(x, 7.5, -BD / 2), dark, Enum.Material.SmoothPlastic)
+	end
+	local sign = part(m, "Sign", Vector3.new(24, 5.5, 1), cf0 * CFrame.new(0, 16, -BD / 2), rgb(40, 45, 80), Enum.Material.SmoothPlastic)
+	surfaceText(sign, {
+		{ Name = "Owner", Text = "FREE BASE", Color = rgb(255, 255, 255), Height = 0.6 },
+		{ Name = "Income", Text = "", Color = rgb(255, 215, 80), Height = 0.4, Stroke = 2 },
+	}, Enum.NormalId.Front, 30)
+	-- Ponto de nascimento (olhando para a rua / zona de chute)
+	local spawnPoint = deco(part(m, "SpawnPoint", Vector3.new(4, 1, 4), cf0 * CFrame.new(0, 1.3, -BD / 2 + 7), color, Enum.Material.SmoothPlastic))
+	spawnPoint.Transparency = 1
+	deco(part(m, "WelcomeMat", Vector3.new(16, 0.15, 6), cf0 * CFrame.new(0, 1.25, -BD / 2 + 4), dark, Enum.Material.Fabric))
+
+	-- Pedestais
+	local slots = folder("Slots", m)
+	for slot = 1, BaseConfig.SlotCount do
+		local sx, sz = BaseConfig.SlotLocal(slot)
+		local sm = model("Slot" .. slot, slots)
+		sm:SetAttribute("Slot", slot)
+		local scf = cf0 * CFrame.new(sx, 0, sz)
+		part(sm, "Pedestal", Vector3.new(2.6, 7.5, 7.5), scf * CFrame.new(0, 2.5, 0) * CFrame.Angles(0, 0, math.rad(90)), rgb(245, 245, 250), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		deco(part(sm, "Rim", Vector3.new(0.8, 8.4, 8.4), scf * CFrame.new(0, 1.5, 0) * CFrame.Angles(0, 0, math.rad(90)), dark, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder))
+		local anchor = deco(part(sm, "Anchor", Vector3.new(1, 1, 1), scf * CFrame.new(0, 3.8, 0), color, Enum.Material.SmoothPlastic))
+		anchor.Transparency = 1
+		-- Botão de coletar (pise para pegar as moedas)
+		local collect = part(sm, "Pad", Vector3.new(0.5, 4.6, 4.6), scf * CFrame.new(0, 1.4, BaseConfig.PadOffset) * CFrame.Angles(0, 0, math.rad(90)), rgb(90, 210, 90), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		collect.CanTouch = true
+		-- Prompt (colocar / pegar pet / liberar slot)
+		local promptPart = deco(part(sm, "PromptPart", Vector3.new(2, 2, 2), scf * CFrame.new(0, 4, 0), color, Enum.Material.SmoothPlastic))
+		promptPart.Transparency = 1
+		local pp = new("ProximityPrompt", {
+			Name = "Prompt",
+			ActionText = "",
+			ObjectText = "",
+			HoldDuration = 0,
+			MaxActivationDistance = 9,
+			RequiresLineOfSight = false,
+			KeyboardKeyCode = Enum.KeyCode.F,
+			GamepadKeyCode = Enum.KeyCode.ButtonY,
+		}, promptPart)
+		pp:SetAttribute("BaseSlot", slot)
+		-- Texto acima do pedestal
+		local gui = new("BillboardGui", {
+			Name = "Info",
+			Size = UDim2.fromOffset(170, 74),
+			StudsOffset = Vector3.new(0, 6, 0),
+			MaxDistance = 70,
+			LightInfluence = 0,
+		}, anchor)
+		local lines = { { "Title", 0, 0.4, rgb(255, 255, 255) }, { "Rate", 0.4, 0.3, rgb(140, 255, 150) }, { "Stored", 0.7, 0.3, rgb(255, 215, 80) } }
+		for _, l in lines do
+			local label = new("TextLabel", {
+				Name = l[1],
+				BackgroundTransparency = 1,
+				Position = UDim2.fromScale(0, l[2]),
+				Size = UDim2.fromScale(1, l[3]),
+				Text = "",
+				TextScaled = true,
+				FontFace = FONT,
+				TextColor3 = l[4],
+			}, gui)
+			new("UIStroke", { Thickness = 2, Color = rgb(30, 30, 50) }, label)
+		end
+	end
 end
 
 ----------------------------------------------------------------------
@@ -474,7 +558,6 @@ local lb = model("Leaderboard", lobby)
 part(lb, "PostL", Vector3.new(1.4, 22, 1.4), CFrame.new(lbDef.X - 10, FLOOR + 11, lbDef.Z), rgb(60, 60, 75), Enum.Material.Metal)
 part(lb, "PostR", Vector3.new(1.4, 22, 1.4), CFrame.new(lbDef.X + 10, FLOOR + 11, lbDef.Z), rgb(60, 60, 75), Enum.Material.Metal)
 local board = part(lb, "Board", Vector3.new(19, 18, 0.8), CFrame.new(lbDef.X, FLOOR + 13, lbDef.Z), rgb(35, 40, 70), Enum.Material.SmoothPlastic)
--- Face voltada para -Z (para o lobby)
 local lbGui = new("SurfaceGui", { Name = "Gui", Face = Enum.NormalId.Front, SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud, PixelsPerStud = 30, LightInfluence = 0 }, board)
 local lbTitle = new("TextLabel", { Name = "Title", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 0.14), Text = "TOP KICKS", TextScaled = true, FontFace = FONT, TextColor3 = rgb(255, 210, 70) }, lbGui)
 new("UIStroke", { Thickness = 4, Color = rgb(20, 20, 40) }, lbTitle)
@@ -513,7 +596,7 @@ for _, area in AreaConfig.Areas do
 		f:SetAttribute("AreaId", area.Id)
 		f:AddTag("Floor")
 		-- terreno lateral (mais largo, mais escuro)
-		local side = part(floors, "Side" .. area.Id, Vector3.new(W + 160, 4, chunkLen), CFrame.new(CX, FLOOR - 2.6, zStart - chunkLen / 2), Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8), material)
+		local side = part(floors, "Side" .. area.Id, Vector3.new(TW * 2 + 40, 4, chunkLen), CFrame.new(CX, FLOOR - 2.6, zStart - chunkLen / 2), Color3.new(color.R * 0.8, color.G * 0.8, color.B * 0.8), material)
 		side.CanQuery = false
 		-- muretas
 		for _, s in { -1, 1 } do
@@ -579,6 +662,16 @@ for _, area in AreaConfig.Areas do
 	end
 end
 
+-- Paredes cartunescas dos dois lados da pista (tema de cada área) e no fim
+for _, area in AreaConfig.Areas do
+	local theme = AREA_THEME[area.Id] or "Meadow"
+	local z0 = K0 - (if area.Id == 1 then -6 else area.Start)
+	local z1 = K0 - area.End - (if area.Id == #AreaConfig.Areas then 12 else 0)
+	cartoonWall(Vector3.new(CX - TW, FLOOR, z0), Vector3.new(CX - TW, FLOOR, z1), theme, 100)
+	cartoonWall(Vector3.new(CX + TW, FLOOR, z0), Vector3.new(CX + TW, FLOOR, z1), theme, 100)
+end
+cartoonWall(Vector3.new(CX - TW, FLOOR, K0 - TrackConfig.Length - 12), Vector3.new(CX + TW, FLOOR, K0 - TrackConfig.Length - 12), "Cosmic", 60)
+
 -- Fim da pista
 local endWall = part(track, "EndWall", Vector3.new(W + 20, 50, 6), CFrame.new(CX, FLOOR + 25, K0 - TrackConfig.Length - 3), rgb(50, 40, 100), Enum.Material.SmoothPlastic)
 surfaceText(endWall, { { Text = "THE END - " .. TrackConfig.Length .. "m", Color = rgb(255, 220, 90) } }, Enum.NormalId.Back, 6)
@@ -637,6 +730,8 @@ local eggAssets = folder("Eggs", assets)
 eggAssets:SetAttribute("Info", "Coloque aqui um Model com o mesmo nome do campo Model do EggConfig para substituir o ovo procedural")
 local petAssets = folder("Pets", assets)
 petAssets:SetAttribute("Info", "Coloque aqui um Model com o mesmo nome do pet (PetConfig) para substituir o pet procedural")
+local weightAssets = folder("Weights", assets)
+weightAssets:SetAttribute("Info", "Coloque aqui um Model com o nome do peso (WeightConfig.Name) para substituir o peso procedural")
 
 ----------------------------------------------------------------------
 -- Scripts (src/ -> instâncias, convenção do Rojo)
