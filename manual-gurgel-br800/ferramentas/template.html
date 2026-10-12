@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<title>Manual de Serviços - Gurgel BR-800 (1989) - versão redigida</title>
+<style>
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-300-normal.woff2);font-weight:300;font-style:normal}
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-300-italic.woff2);font-weight:300;font-style:italic}
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-400-normal.woff2);font-weight:400;font-style:normal}
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-400-italic.woff2);font-weight:400;font-style:italic}
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-700-normal.woff2);font-weight:700;font-style:normal}
+@font-face{font-family:RC;src:url(fonts/roboto-condensed-latin-700-italic.woff2);font-weight:700;font-style:italic}
+@page{size:A4;margin:14mm 15mm 11mm 18mm}
+*{box-sizing:border-box}
+html{font-family:RC,"Liberation Sans",sans-serif;font-size:9.6pt;line-height:1.32;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0}
+.pg{break-before:page;min-height:270mm;display:flex;flex-direction:column;position:relative}
+.pg:first-child{break-before:auto}
+.pg>.body{flex:1 0 auto}
+.pgnum{text-align:right;font-weight:700;font-size:10pt;padding-top:3mm}
+.cols2>.body{column-count:2;column-gap:7mm}
+.colbreak{break-before:column;height:0}
+.span{column-span:all}
+p{margin:0 0 .45em;text-align:justify;hyphens:auto}
+h1,h2,h3,h4{break-after:avoid;margin:0}
+h1{font-size:12pt;letter-spacing:.35em;font-weight:700;margin:0 0 6mm}
+h2{font-size:11.5pt;font-weight:700;margin:0 0 3.5mm}
+h3{font-size:10.2pt;font-weight:700;margin:3.5mm 0 2mm}
+h4{font-size:9.8pt;font-weight:700;margin:3mm 0 1.5mm}
+h2+h3{margin-top:0}
+strong{font-weight:700}
+ol,ul{margin:0 0 .45em;padding-left:1.4em}
+ul{list-style-type:"-  "}
+li{margin:0 0 .25em}
+.steps p{text-indent:0}
+figure.fig{margin:2.5mm auto 3mm;break-inside:avoid;text-align:center}
+figure.fig img{max-width:100%;width:100%;display:block;margin:0 auto}
+figure.wide{column-span:all}
+figcaption{font-size:8.6pt;margin-top:1.2mm;text-align:left}
+figure.left{margin-left:0}
+figure.right{margin-right:0}
+table{border-collapse:collapse;width:100%;margin:1mm 0 3mm;font-size:9pt;break-inside:auto}
+th,td{vertical-align:top;padding:.9mm 1.6mm;text-align:left}
+.r{text-align:right}
+.c{text-align:center}
+table.grid th,table.grid td{border:.6pt solid #222}
+table.grid th{font-weight:700;text-align:center}
+table.spec td{padding:.35mm 1mm}
+table.spec td.r{white-space:nowrap}
+.lead{display:flex;align-items:baseline;gap:1mm}
+.lead .l{flex:0 1 auto}
+.lead .d{flex:1 1 auto;border-bottom:1pt dotted #444;transform:translateY(-.25em);min-width:4mm}
+.lead .r{flex:0 0 auto;text-align:right}
+.ind1{padding-left:4mm}.ind2{padding-left:8mm}.ind3{padding-left:12mm}
+.note{font-weight:700}
+.small{font-size:8.6pt}
+/* tabela de conversão */
+table.conv{width:88%;margin:4mm auto}
+table.conv thead th{font-weight:700;border-top:1pt dashed #333;border-bottom:1pt dashed #333;padding:1.5mm}
+table.conv tr.sec td{text-align:center;font-weight:700;letter-spacing:.4em;border-top:1pt dashed #333;border-bottom:1pt dashed #333;padding:1.5mm}
+table.conv td{padding:.5mm 1.5mm}
+/* índice */
+.toc-group{margin:0 0 4.5mm}
+.toc-row{display:flex;align-items:baseline;gap:1mm;line-height:1.45}
+.toc-row .l{flex:0 1 auto}
+.toc-row .d{flex:1 1 auto;border-bottom:1pt dotted #555;transform:translateY(-.28em);min-width:5mm}
+.toc-row .r{flex:0 0 auto;font-weight:700}
+.toc-row.g .l{font-weight:700}
+/* capa e páginas de grupo */
+.cover>.body{padding-top:6mm}
+.cover-box{background:#151515;color:#fff;height:250mm;display:flex;border:2.5mm solid #151515}
+.cover-left{flex:1;display:flex;align-items:flex-end;justify-content:center;padding-bottom:40mm;border-right:3mm solid #fff;border-bottom:3mm solid #fff;margin-bottom:12mm}
+.cover-title{font-size:26pt;font-weight:700;line-height:1.15}
+.cover-right{width:45mm;writing-mode:vertical-rl;transform:rotate(180deg);font-size:88pt;font-weight:700;letter-spacing:.06em;text-align:center;display:flex;align-items:center;justify-content:center}
+.title-block{text-align:center;padding-top:95mm}
+.title-block .t1{font-size:15pt;text-align:center;margin-bottom:22mm}
+.title-block .t2{font-size:15pt;text-align:center}
+.indent p{text-indent:20mm}
+.signature{text-align:right;margin-top:10mm;line-height:1.3}
+.grouppage>.body{display:flex;flex-direction:column;justify-content:center}
+.grouppage .gtitle{text-align:center;font-size:13pt;letter-spacing:.38em;line-height:2.4;margin:30mm 0 34mm}
+.grouppage .gsubs p{text-align:left;margin:0 0 1.6mm;font-size:10pt;padding-left:12mm}
+table.mini{width:auto;margin:2mm auto 3mm;min-width:70%}
+table.mini th{font-weight:400;border-bottom:.8pt solid #222;padding:.6mm 6mm;text-align:center}
+table.mini td{text-align:center;padding:.6mm 6mm}
+table.mini th+th,table.mini td+td{border-left:.8pt solid #222}
+table.spec2{width:100%;margin:2mm 0 3mm}
+table.spec2 td{padding:.8mm 1mm}
+table.spec2 tr+tr td{border-top:1pt dashed #333}
+table.spec2 td+td{text-align:left;width:38%}
+table.rule{border-top:1pt solid #222;border-bottom:1pt solid #222;margin:1.5mm 0 3mm}
+table.rule td{padding:1mm 2mm}
+table.rule td+td{border-left:1pt solid #222;text-align:center}
+table.dwell{width:100%;margin:1.5mm 0 3mm}
+table.dwell th{font-weight:400;text-align:left;border-bottom:1pt dashed #333;padding:.8mm 2mm}
+table.dwell td{padding:.2mm 2mm}
+table.dwell:not(.volt) th:first-child,table.dwell:not(.volt) td:first-child{border-right:1pt solid #222;width:28%}
+table.comp th,table.comp td{text-align:center;font-weight:400}
+table.comp th:first-child,table.comp td:first-child{width:50%!important}
+table.press{width:100%;margin:1.5mm 0 2mm}
+table.press th{font-weight:400;text-align:center;border-bottom:1pt dashed #333;padding:.8mm 2mm}
+table.press td{padding:.8mm 2mm;border-bottom:1pt dashed #333}
+table.press td+td,table.press th+th{border-left:1pt solid #222;text-align:center}
+table.press tr>*:last-child{border-right:1pt solid #222}
+table.press tr:first-child>*:first-child{border-bottom:none}
+table.falhas td{vertical-align:middle}
+table.falhas td p{margin:0 0 .35em;text-align:left}
+table.falhas td p:last-child{margin-bottom:0}
+.tq{display:flex;align-items:baseline;gap:1mm;line-height:1.38}
+.tq .l{flex:0 1 auto}
+.tq .d{flex:1 1 auto;border-bottom:1pt dotted #444;transform:translateY(-.25em);min-width:4mm}
+.tq .v{flex:0 0 17mm;text-align:right;white-space:nowrap}
+.tqh{margin:3mm 0 1mm}
+.tqh .l{flex:1 1 auto}
+.illeg{color:#888;font-style:italic}
+</style></head><body>
+<!--BODY-->
+</body></html>
